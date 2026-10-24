@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="origin">
+  <title>TachyonStream - Experience</title>
+  <link rel="icon" href="https://avatars.githubusercontent.com/u/187171179?v=4" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="vendor/treeselectjs/treeselectjs.css">
+  <link rel="stylesheet" href="style.css?v=7.1.6">
+</head>
+
+<body>
+  <div class="app-container" id="app-container">
+    <!-- Top Apple TV / Netflix Navigation Bar -->
+    <header class="app-navbar">
+      <div class="nav-left">
+        <div class="brand-logo" id="brand-logo" title="TachyonStream Home">
+          <span class="logo-mark">●</span>
+          <span class="logo-text">Tachyon<span class="logo-highlight">Stream</span></span>
+        </div>
+
+        <nav class="nav-links">
+          <button class="nav-tab active" id="nav-btn-browse">
+            Library
+          </button>
+          <button class="nav-tab" id="nav-btn-cinema">
+            Cinema
+          </button>
+          <button class="nav-tab" id="nav-btn-upload">
+            Upload
+          </button>
+        </nav>
+      </div>
+
+      <div class="nav-center">
+        <!-- Minimal Search Bar -->
+        <div class="search-box">
+          <svg class="search-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="library-search" placeholder="Search title or folder..." autocomplete="off" />
+          <button id="search-clear-btn" class="search-clear-btn" title="Clear search" style="display: none;">✕</button>
+        </div>
+      </div>
+
+      <div class="nav-right">
+        <!-- Audio Quick Toggle -->
+        <button id="nav-btn-sound" class="nav-sound-btn" title="Audio Mute/Unmute">
+          <span id="nav-sound-icon" class="svg-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></span>
+          <span id="nav-sound-text">Sound ON</span>
+        </button>
+
+        <!-- Room Status & Users -->
+        <div class="room-status-badge" title="Room connection state">
+          <span class="status-pulse-dot"></span>
+          <span id="user-count">1 user</span>
+        </div>
+
+        <button id="btn-sync-room" class="sync-indicator" title="Click to resync with room">
+          <span class="sync-spin-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span>
+          <span id="sync-status">Synced</span>
+        </button>
+
+        <button id="btn-fullscreen-toggle" class="nav-icon-btn" title="Toggle Fullscreen">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Floating Audio Unmute Alert -->
+    <div id="unmute-alert" class="unmute-alert-banner" style="display: none;">
+      <span>Video is muted by browser policy. Tap here to unmute audio.</span>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div id="app-toast" class="app-toast">
+      <span id="toast-text">Now Playing</span>
+    </div>
+
+    <!-- Main Viewport: Browse View / Cinema View / Upload Modal -->
+    <div class="main-viewport">
+      <!-- 1. BROWSE VIEW (Netflix / Apple TV Catalogue) -->
+      <section class="view-panel active" id="view-browse">
+        <!-- Featured / Now Playing Hero Banner -->
+        <div class="hero-billboard" id="hero-billboard">
+          <div class="hero-backdrop" id="hero-backdrop"></div>
+          <div class="hero-content">
+            <div class="hero-meta">
+              <span class="hero-live-badge" id="hero-live-badge">
+                <span class="equalizer-wave">
+                  <span class="eq-bar"></span>
+                  <span class="eq-bar"></span>
+                  <span class="eq-bar"></span>
+                  <span class="eq-bar"></span>
+                </span>
+                LIVE ROOM
+              </span>
+              <span class="hero-folder-tag" id="hero-folder-tag">Library</span>
+            </div>
+
+            <h1 class="hero-title" id="hero-title">Select a video or series to begin</h1>
+            <p class="hero-subtitle" id="hero-subtitle">Synchronized multi-user streaming with folder management and live previews.</p>
+
+            <div class="hero-actions" id="hero-actions">
+              <button class="hero-btn hero-btn-primary" id="btn-hero-watch">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Full Cinema
+              </button>
+              <button class="hero-btn hero-btn-secondary" id="btn-hero-playpause">
+                <span id="hero-play-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span>
+                Play / Pause
+              </button>
+              <button class="hero-btn hero-btn-ghost hero-sound-toggle" id="btn-hero-sound" title="Audio Mute/Unmute">
+                <span id="hero-sound-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></span>
+                <span id="hero-sound-text">Sound ON</span>
+              </button>
+              <button class="hero-btn hero-btn-ghost" id="btn-hero-back10" title="Rewind 10 seconds">
+                -10s
+              </button>
+              <button class="hero-btn hero-btn-ghost" id="btn-hero-fwd10" title="Forward 10 seconds">
+                +10s
+              </button>
+              <button class="hero-btn hero-btn-ghost" id="btn-hero-autonext" title="Toggle Auto Next">
+                Auto-Next: OFF
+              </button>
+            </div>
+          </div>
+
+          <!-- Mini PiP Video Dock (stays active while browsing) -->
+          <div class="hero-video-dock" id="hero-video-dock">
+            <!-- Player container docks here in browse mode -->
+          </div>
+        </div>
+
+        <!-- Folder Breadcrumb & Navigation Bar -->
+        <div class="folder-navigation-bar">
+          <div class="breadcrumb-container" id="breadcrumb-container">
+            <!-- Dynamically populated: Library / Anime / Mirai Nikki BD -->
+          </div>
+
+          <div class="folder-bar-actions">
+            <button id="btn-folder-back" class="folder-action-pill" style="display: none;" title="Go back to previous level">
+              Back
+            </button>
+            <button id="btn-folder-playall" class="folder-action-pill accent-pill" style="display: none;" title="Play all episodes from start">
+              Play All
+            </button>
+            <button id="btn-folder-autonext-toggle" class="folder-action-pill" style="display: none;" title="Auto-advance to next episode">
+              Auto-Next: OFF
+            </button>
+            <button id="btn-new-folder" class="folder-action-pill" title="Create a new folder in library">
+              + Folder
+            </button>
+            <button id="btn-new-subfolder" class="folder-action-pill" style="display: none;" title="Create subfolder here">
+              + Subfolder
+            </button>
+            <button id="btn-delete-current-folder" class="folder-action-pill danger-pill" style="display: none;" title="Delete this folder">
+              Delete Folder
+            </button>
+            <button id="btn-refresh-library" class="folder-action-pill icon-only" title="Refresh library">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Catalogue Content: Dynamic Rows / Grid -->
+        <div class="catalogue-container" id="catalogue-container">
+          <!-- Populated by renderCatalogue() -->
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading entertainment library...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. CINEMA PLAYER VIEW (Full-Screen Immersive Theater) -->
+      <section class="view-panel" id="view-cinema">
+        <div class="cinema-theater" id="cinema-theater">
+          <!-- Floating Top Header (Auto hides when idle) -->
+          <div class="cinema-hud cinema-hud-top" id="cinema-hud-top">
+            <button id="btn-cinema-back-browse" class="hud-btn hud-back-btn">
+              Back to Library
+            </button>
+            <div class="cinema-title-meta">
+              <span class="cinema-playing-label">NOW STREAMING</span>
+              <h2 class="cinema-video-title" id="cinema-video-title">No Video Selected</h2>
+              <span class="cinema-folder-name" id="cinema-folder-name">Root Library</span>
+            </div>
+            <div class="cinema-top-right">
+              <button id="btn-cinema-episodes-toggle" class="hud-btn" title="Open episodes list">
+                Episodes
+              </button>
+            </div>
+          </div>
+
+          <!-- Video Player Box (Docked here in Cinema mode) -->
+          <div class="cinema-video-holder" id="cinema-video-holder">
+            <!-- #player-container is placed here when in Cinema Mode -->
+          </div>
+
+          <!-- Floating Bottom Controls HUD (YouTube & Cinema Style) -->
+          <div class="cinema-hud cinema-hud-bottom" id="cinema-hud-bottom">
+            <!-- YouTube Full-Width Interactive Scrubber Bar -->
+            <div class="yt-progress-bar-container" id="yt-progress-container">
+              <div class="yt-progress-hover-tooltip" id="yt-progress-tooltip">00:00</div>
+              <div class="yt-progress-track">
+                <div class="yt-progress-background"></div>
+                <div class="yt-progress-hover-line" id="yt-progress-hover-line"></div>
+                <div class="yt-progress-buffered" id="yt-progress-buffered"></div>
+                <div class="yt-progress-played" id="yt-progress-played"></div>
+                <div class="yt-progress-handle" id="yt-progress-handle"></div>
+              </div>
+              <input type="range" id="cinema-scrubber" min="0" max="100" value="0" step="0.1" class="cinema-scrubber-hidden" />
+            </div>
+
+            <!-- YouTube Transport Controls Bar -->
+            <div class="transport-controls">
+              <div class="transport-left">
+                <button id="btn-toggle-play" class="transport-btn transport-main-btn" title="Play / Pause">
+                  <span id="cinema-play-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span>
+                </button>
+                <button id="btn-backward-10" class="transport-btn icon-only" title="Rewind 10 seconds">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+                </button>
+                <button id="btn-forward-10" class="transport-btn icon-only" title="Forward 10 seconds">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17l5-5-5-5M6 17l5-5-5-5"/></svg>
+                </button>
+                <button id="btn-next-episode" class="transport-btn icon-only" title="Next Episode in Series">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                </button>
+
+                <div class="volume-box">
+                  <button id="btn-cinema-mute" class="transport-btn icon-only" title="Mute/Unmute">
+                    <span id="volume-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></span>
+                  </button>
+                  <input type="range" id="cinema-volume" min="0" max="1" step="0.05" value="1" class="volume-slider" />
+                </div>
+
+                <!-- YouTube Time Readout: 14:09 / 23:48 -->
+                <div class="yt-time-display">
+                  <span id="cinema-time-current">00:00</span>
+                  <span class="yt-time-sep">/</span>
+                  <span id="cinema-time-total">00:00</span>
+                </div>
+              </div>
+
+              <div class="transport-right">
+                <button id="btn-cinema-autonext" class="transport-btn pill-btn" title="Toggle Auto Next">
+                  Auto-Next: OFF
+                </button>
+                <button id="btn-cinema-fullscreen" class="transport-btn icon-only" title="Full Screen">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide-Over Quick Episodes Drawer (Browse episodes without leaving Cinema) -->
+          <aside class="cinema-episodes-drawer" id="cinema-episodes-drawer">
+            <div class="drawer-header">
+              <div class="drawer-header-title">
+                <h3 id="drawer-folder-title">Folder Episodes</h3>
+              </div>
+              <button id="btn-close-episodes-drawer" class="drawer-close-btn" title="Close episodes drawer">✕</button>
+            </div>
+            <div class="drawer-episodes-list" id="drawer-episodes-list">
+              <!-- Dynamically populated with episodes -->
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 3. UPLOAD MODAL / VIEW (Chunked Video Uploader) -->
+      <section class="view-panel" id="view-upload">
+        <div class="upload-dialog-card">
+          <div class="upload-card-header">
+            <div class="upload-header-text">
+              <h2>Upload Video to TachyonStream</h2>
+              <p>Supports MP4, WebM, MKV, MOV. High-speed chunked upload with resumable assembling.</p>
+            </div>
+            <button class="upload-close-btn" id="btn-close-upload">✕</button>
+          </div>
+
+          <div class="upload-dropzone" id="upload-dropzone">
+            <div class="dropzone-icon">🎬</div>
+            <p class="dropzone-main-text">Drag & drop movie files here, or <span class="browse-link">browse</span></p>
+            <p class="dropzone-sub-text">Only video formats (MP4, MKV, WebM, MOV, AVI) are supported. Non-movie files will be rejected.</p>
+            <input type="file" id="file-input" accept="video/*,.mp4,.mkv,.webm,.mov,.avi,.flv,.wmv,.m4v" />
+          </div>
+
+          <div class="upload-options">
+            <div class="form-group custom-folder-form-group">
+              <div class="folder-label-header">
+                <label for="upload-folder-select">Target Series / Folder</label>
+                <button type="button" class="btn-quick-new-folder" id="btn-upload-quick-folder" title="Create a new folder or subfolder">
+                  <span>+</span> New Folder
+                </button>
+              </div>
+
+              <!-- Native select preserved for compatibility (hidden visually) -->
+              <select id="upload-folder-select" class="apple-select visually-hidden" title="Target Folder">
+                <option value="">📁 Root (No Folder / Standalone Movie)</option>
+              </select>
+
+              <!-- Treeselect JS Hierarchical Folder Select Container -->
+              <div id="treeselect-folder-container"></div>
+            </div>
+            <div class="form-group-btn">
+              <button id="upload-btn" class="apple-btn apple-btn-primary">
+                <span>⚡</span> Upload & Stream Immediately
+              </button>
+            </div>
+          </div>
+
+          <div class="progress-container" id="progress-container" style="display: none;">
+            <div class="progress-header">
+              <span id="upload-status" class="status-title">Uploading...</span>
+              <span id="upload-percent" class="status-percent">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+            <div class="progress-footer">
+              <span id="upload-chunks" class="status-detail">Chunk: 0/0</span>
+              <span id="upload-size" class="status-detail">0 MB / 0 MB</span>
+              <span id="upload-speed" class="status-detail">0 MB/s</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Hidden Master Video Container (Moved dynamically between Hero Dock and Cinema View) -->
+    <div id="player-container" class="player-container">
+      <div id="custom-player-box" class="player-box active">
+        <video id="custom-video" playsinline crossorigin="anonymous" preload="auto" controlsList="nodownload noremoteplayback" oncontextmenu="return false;"></video>
+      </div>
+    </div>
+
+    <!-- Universal In-App Modal Dialog -->
+    <div id="modal-backdrop" class="modal-backdrop" style="display: none;">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 id="modal-title" class="modal-title">Modal Title</h3>
+          <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+          <p id="modal-message" class="modal-message"></p>
+          <div id="modal-input-container"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="modal-btn-cancel" class="modal-btn modal-btn-secondary">Cancel</button>
+          <button id="modal-btn-confirm" class="modal-btn modal-btn-primary">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="vendor/treeselectjs/treeselectjs.umd.js?v=1.0.2-fixed"></script>
+  <script src="app.js?v=7.1.6"></script>
+</body>
+
+</html>

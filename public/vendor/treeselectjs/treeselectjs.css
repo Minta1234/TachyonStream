@@ -1,0 +1,472 @@
+.treeselect-input {
+    box-sizing: border-box;
+    border: 1px solid var(--treeselectjs-border-color);
+    background-color: var(--treeselectjs-bg);
+    cursor: text;
+    border-radius: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+    min-height: 37px;
+    padding: 2px 40px 2px 4px;
+    display: flex;
+    position: relative
+}
+
+.treeselect-input--unsearchable {
+    cursor: default
+}
+
+.treeselect-input--unsearchable .treeselect-input__edit {
+    caret-color: #0000;
+    cursor: default
+}
+
+.treeselect-input--unsearchable .treeselect-input__edit:focus {
+    z-index: -1;
+    width: 0;
+    min-width: 0;
+    position: absolute;
+    left: 0
+}
+
+.treeselect-input--value-not-selected .treeselect-input__edit,
+.treeselect-input--value-not-selected.treeselect-input--unsearchable .treeselect-input__edit:focus {
+    z-index: auto;
+    width: 100%;
+    max-width: 100%;
+    position: static
+}
+
+.treeselect-input--value-not-selected .treeselect-input__tags {
+    gap: 0
+}
+
+[dir=rtl] .treeselect-input {
+    padding-left: 40px;
+    padding-right: 4px
+}
+
+[dir=rtl] .treeselect-input__operators {
+    right: unset;
+    left: 2px
+}
+
+.treeselect-input__tags {
+    box-sizing: border-box;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    max-width: 100%;
+    display: inline-flex
+}
+
+.treeselect-input__tags-element {
+    background-color: var(--treeselectjs-tag-bg);
+    cursor: pointer;
+    box-sizing: border-box;
+    border-radius: 2px;
+    align-items: center;
+    max-width: 100%;
+    padding: 2px 5px;
+    font-size: 14px;
+    display: inline-flex
+}
+
+.treeselect-input__tags-element:hover {
+    background-color: var(--treeselectjs-tag-bg-hover)
+}
+
+.treeselect-input__tags-element:hover .treeselect-input__tags-cross svg {
+    stroke: var(--treeselectjs-tag-remove-hover)
+}
+
+.treeselect-input__tags-name {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden
+}
+
+.treeselect-input__tags-cross {
+    margin-left: 2px;
+    display: flex
+}
+
+.treeselect-input__tags-cross svg {
+    width: 12px;
+    height: 12px
+}
+
+.treeselect-input__tags-count {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    overflow: hidden
+}
+
+.treeselect-input__edit {
+    background-color: var(--treeselectjs-bg);
+    text-overflow: ellipsis;
+    z-index: -1;
+    border: none;
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    max-width: calc(100% - 45px);
+    padding: 0;
+    font-size: 14px;
+    position: absolute
+}
+
+.treeselect-input__edit:focus {
+    z-index: auto;
+    outline: none;
+    min-width: 30px;
+    max-width: 100%;
+    position: static
+}
+
+.treeselect-input__operators {
+    max-width: 40px;
+    display: flex;
+    position: absolute;
+    right: 2px
+}
+
+.treeselect-input__clear {
+    cursor: pointer;
+    display: flex
+}
+
+.treeselect-input__clear svg {
+    stroke: var(--treeselectjs-icon);
+    width: 17px;
+    min-width: 17px;
+    height: 20px
+}
+
+.treeselect-input__clear:hover svg {
+    stroke: var(--treeselectjs-icon-hover)
+}
+
+.treeselect-input__arrow {
+    cursor: pointer;
+    display: flex
+}
+
+.treeselect-input__arrow svg {
+    stroke: var(--treeselectjs-icon);
+    width: 20px;
+    min-width: 20px;
+    height: 20px
+}
+
+.treeselect-input__arrow:hover svg {
+    stroke: var(--treeselectjs-icon-hover)
+}
+
+.treeselect-list {
+    box-sizing: border-box;
+    border: 1px solid var(--treeselectjs-border-color);
+    background-color: var(--treeselectjs-bg);
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto
+}
+
+.treeselect-list__group-container {
+    box-sizing: border-box
+}
+
+.treeselect-list__item {
+    box-sizing: border-box;
+    cursor: pointer;
+    align-items: center;
+    height: 30px;
+    display: flex
+}
+
+.treeselect-list__item:focus {
+    outline: none
+}
+
+.treeselect-list__item--focused,
+.treeselect-list__item--focused.treeselect-list__item--checked {
+    background-color: var(--treeselectjs-item-focus-bg)
+}
+
+.treeselect-list__item--hidden {
+    display: none
+}
+
+.treeselect-list__item--scroll-not-visible {
+    visibility: hidden
+}
+
+.treeselect-list__item-icon {
+    cursor: pointer;
+    align-items: center;
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    display: flex
+}
+
+.treeselect-list__item-icon svg {
+    pointer-events: none;
+    width: 100%;
+    height: 100%;
+    stroke: var(--treeselectjs-icon)
+}
+
+.treeselect-list__item-icon * {
+    pointer-events: none
+}
+
+.treeselect-list__item-icon:hover svg {
+    stroke: var(--treeselectjs-icon-hover)
+}
+
+.treeselect-list__item-checkbox-container {
+    border: 1px solid var(--treeselectjs-checkbox-border-color);
+    background-color: var(--treeselectjs-checkbox-bg);
+    pointer-events: none;
+    box-sizing: border-box;
+    border-radius: 3px;
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    position: relative
+}
+
+.treeselect-list__item-checkbox-container svg {
+    width: 100%;
+    height: 100%;
+    position: absolute
+}
+
+.treeselect-list__item-checkbox {
+    pointer-events: none;
+    z-index: -1;
+    width: 0;
+    height: 0;
+    margin: 0;
+    position: absolute
+}
+
+.treeselect-list__item-checkbox-icon {
+    text-align: left;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0
+}
+
+.treeselect-list__item-label {
+    text-overflow: ellipsis;
+    word-break: keep-all;
+    white-space: nowrap;
+    pointer-events: none;
+    text-align: left;
+    width: 100%;
+    padding-left: 5px;
+    font-size: 14px;
+    overflow: hidden
+}
+
+.treeselect-list__item-label-counter {
+    color: var(--treeselectjs-item-counter);
+    margin-left: 3px;
+    font-size: 13px
+}
+
+.treeselect-list__empty {
+    align-items: center;
+    height: 30px;
+    padding-left: 4px;
+    display: flex
+}
+
+.treeselect-list__empty--hidden {
+    display: none
+}
+
+.treeselect-list__empty-icon {
+    align-items: center;
+    display: flex
+}
+
+.treeselect-list__empty-text {
+    text-overflow: ellipsis;
+    word-break: keep-all;
+    white-space: nowrap;
+    padding-left: 5px;
+    font-size: 14px;
+    overflow: hidden
+}
+
+.treeselect-list__slot {
+    box-sizing: border-box;
+    background-color: var(--treeselectjs-bg);
+    width: 100%;
+    max-width: 100%;
+    position: sticky;
+    bottom: 0
+}
+
+.treeselect-list.treeselect-list--single-select .treeselect-list__item-checkbox-container,
+.treeselect-list.treeselect-list--disabled-branch-node .treeselect-list__item--group .treeselect-list__item-checkbox-container,
+.treeselect-list__item--non-selectable-group .treeselect-list__item-checkbox-container {
+    display: none
+}
+
+.treeselect-list__item--checked {
+    background-color: var(--treeselectjs-item-selected-bg)
+}
+
+.treeselect-list.treeselect-list--single-select .treeselect-list__item--checked {
+    background-color: #0000
+}
+
+.treeselect-list.treeselect-list--single-select .treeselect-list__item--single-selected {
+    background-color: var(--treeselectjs-item-selected-bg)
+}
+
+.treeselect-list__item .treeselect-list__item-checkbox-container svg {
+    stroke: #0000
+}
+
+.treeselect-list__item--checked .treeselect-list__item-checkbox-container svg,
+.treeselect-list__item--partial-checked .treeselect-list__item-checkbox-container svg {
+    stroke: var(--treeselectjs-checkbox-checked-icon)
+}
+
+.treeselect-list__item--checked .treeselect-list__item-checkbox-container,
+.treeselect-list__item--partial-checked .treeselect-list__item-checkbox-container {
+    background-color: var(--treeselectjs-checkbox-checked-bg)
+}
+
+.treeselect-list__item--disabled .treeselect-list__item-checkbox-container {
+    background-color: var(--treeselectjs-item-selected-bg)
+}
+
+.treeselect-list__item--disabled .treeselect-list__item-label {
+    color: var(--treeselectjs-item-disabled-text)
+}
+
+[dir=rtl] .treeselect-list__item-checkbox-icon {
+    text-align: right
+}
+
+[dir=rtl] .treeselect-list__item-label {
+    text-align: right;
+    padding-right: 5px;
+    padding-left: unset
+}
+
+[dir=rtl] .treeselect-list__item--closed .treeselect-list__item-icon {
+    transform: rotate(180deg)
+}
+
+[dir=rtl] .treeselect-list__empty {
+    padding-right: 4px;
+    padding-left: unset
+}
+
+[dir=rtl] .treeselect-list__empty-text {
+    padding-right: 5px;
+    padding-left: unset
+}
+
+:root {
+    --treeselectjs-border-color: #d7dde4;
+    --treeselectjs-bg: #fff;
+    --treeselectjs-border-focus: #101010;
+    --treeselectjs-tag-bg: #d7dde4;
+    --treeselectjs-tag-bg-hover: #c5c7cb;
+    --treeselectjs-tag-remove-hover: #eb4c42;
+    --treeselectjs-icon: #c5c7cb;
+    --treeselectjs-icon-hover: #838790;
+    --treeselectjs-item-counter: #838790;
+    --treeselectjs-item-focus-bg: azure;
+    --treeselectjs-item-selected-bg: #e9f1f1;
+    --treeselectjs-item-disabled-text: #c5cbca;
+    --treeselectjs-checkbox-bg: #fff;
+    --treeselectjs-checkbox-border-color: #d7dde4;
+    --treeselectjs-checkbox-checked-bg: #52c67e;
+    --treeselectjs-checkbox-checked-icon: #fff
+}
+
+.treeselect {
+    box-sizing: border-box;
+    width: 100%;
+    position: relative
+}
+
+.treeselect--disabled {
+    pointer-events: none
+}
+
+.treeselect-list {
+    box-sizing: border-box;
+    z-index: 1000;
+    border-radius: 4px;
+    position: absolute;
+    left: 0
+}
+
+.treeselect .treeselect-list {
+    position: absolute
+}
+
+.treeselect .treeselect-list--static {
+    position: static
+}
+
+.treeselect-input--focused {
+    border-color: var(--treeselectjs-border-focus)
+}
+
+.treeselect-input--opened.treeselect-input--top {
+    border-top-color: #0000;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0
+}
+
+.treeselect-input--opened.treeselect-input--bottom {
+    border-bottom-color: #0000;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0
+}
+
+.treeselect-list--focused {
+    border-color: var(--treeselectjs-border-focus)
+}
+
+.treeselect-list--top,
+.treeselect-list--top-to-body {
+    border-bottom-color: var(--treeselectjs-border-color);
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0
+}
+
+.treeselect-list--bottom,
+.treeselect-list--bottom-to-body {
+    border-top-color: var(--treeselectjs-border-color);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0
+}
+
+.treeselect-list--top {
+    bottom: 100%;
+    left: 0
+}
+
+.treeselect-list--bottom {
+    top: 100%;
+    left: 0
+}
+
+/*$vite$:1*/
