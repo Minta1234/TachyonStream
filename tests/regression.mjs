@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import { parseByteRange } from '../lib/http-range.js';
+assert.deepEqual(parseByteRange('bytes=10-', 100), {start:10,end:99});
+assert.deepEqual(parseByteRange('bytes=-20', 100), {start:80,end:99});
+assert.deepEqual(parseByteRange('bytes=0-999', 100), {start:0,end:99});
+for (const range of ['bytes=-0','bytes=100-','bytes=5-2','bytes=0-1,3-4','bytes=-','bytes=99999999999999999999-']) assert.equal(parseByteRange(range,100), null);
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { once } from 'node:events';
@@ -60,6 +65,19 @@ try {
   ws.send('42["join-room",{"roomId":"test","user":"test"}]');
   const response = await fetch(base+movie.url+'?sid='+sid,{headers:fakeHeaders});
   assert.equal(response.status,206);assert.equal((await response.arrayBuffer()).byteLength,16);
+  const suffixResponse = await fetch(base+movie.url+'?sid='+sid,{headers:{...fakeHeaders,Range:'bytes=-8'}});
+  assert.equal(suffixResponse.status,206);
+  assert.equal(suffixResponse.headers.get('content-range'),'bytes 24-31/32');
+  assert.equal((await suffixResponse.arrayBuffer()).byteLength,8);
+  const headResponse = await fetch(base+movie.url+'?sid='+sid,{method:'HEAD',headers:fakeHeaders});
+  assert.equal(headResponse.status,206); assert.equal(headResponse.headers.get('content-length'),'16');
+  assert.equal((await headResponse.arrayBuffer()).byteLength,0);
+  const largeBytes = Buffer.alloc(4*1024*1024,7);
+  await fs.writeFile(path.join(temp,'uploads','large.mp4'),largeBytes);
+  const openRange = await fetch(base+'/api/stream/large.mp4?sid='+sid,{headers:{...fakeHeaders,Range:'bytes=0-'}});
+  assert.equal(openRange.status,206);
+  assert.equal(openRange.headers.get('content-length'),String(largeBytes.length));
+  assert.deepEqual(Buffer.from(await openRange.arrayBuffer()),largeBytes);
   const domainStream = await fetch(base+movie.url+'?sid='+sid,{headers:{...fakeHeaders,referer:'https://stream.test/'}});
   assert.equal(domainStream.status,206);assert.equal((await domainStream.arrayBuffer()).byteLength,16);
   assert.equal((await fetch(base+movie.url+'?sid='+sid,{headers:{...fakeHeaders,referer:'https://untrusted.invalid/'}})).status,403);
@@ -160,6 +178,32 @@ try {
     viewContext.switchView(name);
     views.forEach((view, i) => assert.equal(view.inert, i !== index % 3));
   }
+  let previewDelay;
+  const previewContext = {hoverPreviewTimer:null, removeActiveHoverPreview(){}, clearTimeout(){},
+    setTimeout(_callback,delay){previewDelay=delay;}, navigator:{connection:{}}, document:{hidden:false}, customVideo:{src:'movie',paused:false}};
+  vm.createContext(previewContext);
+  vm.runInContext(app.slice(app.indexOf('function attachHoverPreview'),app.indexOf('customVideo.addEventListener("play", removeActiveHoverPreview)')),previewContext);
+  previewContext.attachHoverPreview({}, 'movie'); assert.equal(previewDelay,undefined);
+  previewContext.customVideo.paused = true; previewContext.navigator.connection.saveData = true;
+  previewContext.attachHoverPreview({}, 'movie'); assert.equal(previewDelay,undefined);
+  previewContext.navigator.connection = {effectiveType:'2g'};
+  previewContext.attachHoverPreview({}, 'movie'); assert.equal(previewDelay,undefined);
+  previewContext.navigator.connection = {}; previewContext.attachHoverPreview({}, 'movie'); assert.equal(previewDelay,700);
+  const libraryRequests = [];
+  let libraryRenders = 0;
+  const libraryContext = {apiFetch:()=>new Promise(resolve=>libraryRequests.push(resolve)),console,
+    updateFolderSelectDropdown(){},renderCatalogue(){libraryRenders++;},updateHeroBillboard(){},renderEpisodesDrawer(){}};
+  vm.createContext(libraryContext);
+  vm.runInContext(app.slice(app.indexOf('let libraryLoadPromise'),app.indexOf('function findFolderByPath')), libraryContext);
+  const firstLoad = libraryContext.loadLibrary();
+  assert.equal(firstLoad, libraryContext.loadLibrary());
+  assert.equal(libraryRequests.length,1);
+  const sameLibrary = {ok:true,json:async()=>({folders:[],rootVideos:[]})};
+  libraryRequests[0](sameLibrary);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(libraryRequests.length,2);
+  libraryRequests[1](sameLibrary); await firstLoad;
+  assert.equal(libraryRenders,1);
   const billboardCode = app.slice(app.indexOf('function updateHeroBillboard'),app.indexOf('// Catalogue & Netflix/Apple TV Folder Navigation'));
   const labels = new Map();
   const billboardContext = { customVideo:{src:'/api/stream/movie.mp4'},roomId:'test',pathBasename:()=> 'movie.mp4',formatMediaTitle:()=> 'Movie',document:{getElementById:id=>{if(!labels.has(id))labels.set(id,{style:{}});return labels.get(id);}} };
@@ -180,7 +224,7 @@ try {
   vm.runInNewContext(fn+';applyThumbnailToContainer(container,"/poster.jpg",null,null,0);',{container:detached,document:{createElement:()=>({classList:{add(){}},complete:false})},formatTime:()=>''});
   assert.equal(image.src,'/poster.jpg');
   ws.close();
-  console.log('PASS: keyboard shortcut safeguards, inactive view isolation, password-free session requests, blocked cross-site HTTP/WebSocket, blocked encoded static upload URLs, malformed socket packets, literal %, upload validation/assembly/cleanup, session enforcement, streaming body/ranges, thumbnail persistence, detached-card thumbnail regression; real new upload, nested folder covers, preserved thumbnail after move.');
+  console.log('PASS: continuous/suffix/HEAD streaming, preview bandwidth safeguards, coalesced library refresh, keyboard shortcut safeguards, inactive view isolation, password-free session requests, blocked cross-site HTTP/WebSocket, blocked encoded static upload URLs, malformed socket packets, literal %, upload validation/assembly/cleanup, session enforcement, streaming body/ranges, thumbnail persistence, detached-card thumbnail regression; real new upload, nested folder covers, preserved thumbnail after move.');
 } finally {
   for (const socket of activeSockets) socket.terminate();
   child.kill();

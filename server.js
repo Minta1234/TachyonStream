@@ -1,4 +1,5 @@
 import express from "express";
+import { parseByteRange } from "./lib/http-range.js";
 import http from "http";
 import { Server } from "socket.io";
 import path from "path";
@@ -756,7 +757,7 @@ function validateVideoAccess(req) {
 
 // Custom streaming handler for large videos (HTTP 206 Partial Content Range)
 // Supports any nested folder depth & Direct URL Access Denied protection
-function handleVideoStreaming(req, res) {
+async function handleVideoStreaming(req, res) {
   // Direct URL Access Denied Protection: Block unauthorized address-bar visits
   const access = validateVideoAccess(req);
   if (!access.allowed) {
@@ -849,11 +850,16 @@ function handleVideoStreaming(req, res) {
 
   const filePath = resolveSafePath(uploadsDir, decodedSubPath);
 
-  if (!filePath || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    return res.status(404).send("File not found");
+  if (!filePath) return res.status(404).send("File not found");
+  let stat;
+  try {
+    stat = await fs.promises.stat(filePath);
+  } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") return res.status(404).send("File not found");
+    console.error("Video stat failed:", error.code);
+    return res.status(500).send("Unable to read video");
   }
-
-  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) return res.status(404).send("File not found");
   const fileSize = stat.size;
   const range = req.headers.range;
 
@@ -864,23 +870,20 @@ function handleVideoStreaming(req, res) {
   else if (ext === ".mov") contentType = "video/quicktime";
   else if (ext === ".ogg") contentType = "video/ogg";
 
-  // Balanced chunk streaming: max 3MB per partial range request
-  // Prevents piping gigabytes of video into RAM on open range requests, ensuring fast seeks and low memory footprint.
-  const MAX_STREAM_CHUNK = 3 * 1024 * 1024; // 3 MB
-
+  // Node's pipe backpressure bounds memory without extra 3 MB HTTP round trips.
   if (range) {
-    const parts = range.replace(/bytes=/, "").split("-");
-    const start = parseInt(parts[0], 10);
-    let end = parts[1] ? parseInt(parts[1], 10) : start + MAX_STREAM_CHUNK - 1;
-    if (end >= fileSize) end = fileSize - 1;
-
-    // Safety check for invalid or reversed ranges
-    if (!/^bytes=\d+-\d*$/.test(range) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end) {
+    const parsed = parseByteRange(range, fileSize);
+    if (!parsed) {
       res.setHeader("Content-Range", `bytes */${fileSize}`);
       return res.status(416).send("Requested Range Not Satisfiable");
     }
 
+    const { start, end } = parsed;
     const chunksize = end - start + 1;
+    if (req.method === "HEAD") {
+      res.status(206).set({ "Content-Range": `bytes ${start}-${end}/${fileSize}`, "Content-Length": chunksize, "Content-Type": contentType, "Accept-Ranges": "bytes", "Cache-Control": "no-store" }).end();
+      return;
+    }
     const file = fs.createReadStream(filePath, { start, end });
 
     // Clean up read stream if user seeks or aborts
@@ -921,6 +924,7 @@ function handleVideoStreaming(req, res) {
       "Cloudflare-CDN-Cache-Control": "no-store"
     };
     res.writeHead(200, head);
+    if (req.method === "HEAD") return res.end();
     const file = fs.createReadStream(filePath);
     res.on("close", () => {
       file.destroy();

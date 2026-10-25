@@ -998,6 +998,9 @@ function renderCatalogue() {
   const container = document.getElementById("catalogue-container");
   if (!container) return;
 
+  removeActiveHoverPreview();
+  lazyCardObserver?.disconnect();
+  thumbnailQueue.length = 0;
   renderBreadcrumbs();
   renderFolderBarActions();
 
@@ -1369,7 +1372,7 @@ async function putStoredThumbnail(key, dataUrl, duration) {
 const thumbnailCache = new Map();
 const thumbnailQueue = [];
 let activeThumbnailJobs = 0;
-const MAX_CONCURRENT_THUMBNAIL_JOBS = 2; // Strict limit: max 2 decoders in flight
+const MAX_CONCURRENT_THUMBNAIL_JOBS = 1; // Keep fallback decoding from competing with playback.
 
 const lazyCardObserver = (typeof IntersectionObserver !== "undefined")
   ? new IntersectionObserver((entries, observer) => {
@@ -1397,11 +1400,13 @@ function enqueueThumbnailGeneration(item) {
     applyThumbnailToContainer(item.containerEl, cached.dataUrl, item.durationEl, item.badgeEl, cached.duration, item.isFolder);
     return;
   }
+  if (thumbnailQueue.some(task => task.containerEl === item.containerEl)) return;
   thumbnailQueue.push(item);
   processThumbnailQueue();
 }
 
 function processThumbnailQueue() {
+  if (document.hidden || (customVideo.src && !customVideo.paused)) return;
   if (activeThumbnailJobs >= MAX_CONCURRENT_THUMBNAIL_JOBS || thumbnailQueue.length === 0) {
     return;
   }
@@ -1417,7 +1422,7 @@ function processThumbnailQueue() {
   const tempVideo = document.createElement("video");
   tempVideo.muted = true;
   tempVideo.playsInline = true;
-  tempVideo.preload = "auto";
+  tempVideo.preload = "metadata";
   tempVideo.crossOrigin = "anonymous";
 
   let isCleanedUp = false;
@@ -1541,6 +1546,8 @@ function applyThumbnailToContainer(containerEl, dataUrl, durationEl, badgeEl, du
       img = document.createElement("img");
       img.className = imgClass;
       img.alt = "Thumbnail";
+      img.loading = "lazy";
+      img.decoding = "async";
       containerEl.appendChild(img);
     }
     img.onload = () => {
@@ -1566,8 +1573,10 @@ function attachHoverPreview(containerEl, videoUrl, startTime = 15) {
   clearTimeout(hoverPreviewTimer);
   removeActiveHoverPreview();
 
+  const connection = navigator.connection;
+  if (document.hidden || (customVideo.src && !customVideo.paused) || connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "")) return;
   hoverPreviewTimer = setTimeout(() => {
-    if (!containerEl || !document.body.contains(containerEl)) return;
+    if (document.hidden || (customVideo.src && !customVideo.paused) || !containerEl || !document.body.contains(containerEl)) return;
     const hoverVideo = document.createElement("video");
     hoverVideo.className = "card-preview-hover-media";
     hoverVideo.muted = true;
@@ -1578,8 +1587,15 @@ function attachHoverPreview(containerEl, videoUrl, startTime = 15) {
     containerEl.appendChild(hoverVideo);
     activeHoverPreviewEl = hoverVideo;
     hoverVideo.play().catch(() => {});
-  }, 200);
+  }, 700);
 }
+
+customVideo.addEventListener("play", removeActiveHoverPreview);
+customVideo.addEventListener("pause", processThumbnailQueue);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) removeActiveHoverPreview();
+  else processThumbnailQueue();
+});
 
 function removeActiveHoverPreview() {
   clearTimeout(hoverPreviewTimer);
@@ -2190,18 +2206,33 @@ function playNextInFolder(folderPath, forceNext = false) {
 
 // ==========================================================================
 // Library Data Fetching & Helpers
-async function loadLibrary() {
-  try {
-    const res = await apiFetch("/api/library");
-    const data = await res.json();
-    currentLibraryData = data || { folders: [], rootVideos: [], allFoldersList: [] };
-    updateFolderSelectDropdown();
-    renderCatalogue();
-    updateHeroBillboard();
-    renderEpisodesDrawer();
-  } catch (e) {
-    console.error("Failed to load library:", e);
-  }
+let libraryLoadPromise = null;
+let libraryRefreshRequested = false;
+let librarySnapshot = "";
+function loadLibrary() {
+  libraryRefreshRequested = true;
+  if (libraryLoadPromise) return libraryLoadPromise;
+  libraryLoadPromise = (async () => {
+    do {
+      libraryRefreshRequested = false;
+      try {
+        const res = await apiFetch("/api/library");
+        if (!res.ok) throw new Error(`Library HTTP ${res.status}`);
+        const data = await res.json();
+        const snapshot = JSON.stringify(data);
+        if (snapshot === librarySnapshot) continue;
+        currentLibraryData = data || { folders: [], rootVideos: [], allFoldersList: [] };
+        librarySnapshot = snapshot;
+        updateFolderSelectDropdown();
+        renderCatalogue();
+        updateHeroBillboard();
+        renderEpisodesDrawer();
+      } catch (error) {
+        console.error("Failed to load library:", error);
+      }
+    } while (libraryRefreshRequested);
+  })().finally(() => { libraryLoadPromise = null; });
+  return libraryLoadPromise;
 }
 
 function findFolderByPath(folders, targetPath) {
