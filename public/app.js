@@ -51,6 +51,9 @@ function setRemoteAction(durationMs = 1200) {
   }, durationMs);
 }
 
+const qualityPlayer = new QualityPlayer(customVideo, document.getElementById("quality-select"), document.getElementById("quality-status"), apiFetch, getSecuredVideoUrl);
+function setPlaybackSource(source) { qualityPlayer.setSource(source); }
+
 // Connect to room (Discord voice channel or default)
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get("channel_id") || "default-voice-room";
@@ -99,7 +102,7 @@ socket.on("connect", () => {
     if (!customVideo.src.includes(`sid=${socket.id}`)) {
       const savedTime = customVideo.currentTime;
       const wasPlaying = !customVideo.paused;
-      customVideo.src = getSecuredVideoUrl(currentPlayingSource);
+      setPlaybackSource(currentPlayingSource);
       customVideo.currentTime = savedTime;
       if (wasPlaying) customVideo.play().catch(() => {});
     }
@@ -116,20 +119,20 @@ if (customVideo) {
 customVideo.addEventListener("play", () => {
   updatePlayButtonUI(true);
   updateSoundUI();
-  if (isRemoteAction) return;
+  if (isRemoteAction || qualityPlayer.changing) return;
   socket.emit("video-play", { time: customVideo.currentTime });
   updateStatus("Playing");
 });
 
 customVideo.addEventListener("pause", () => {
   updatePlayButtonUI(false);
-  if (isRemoteAction) return;
+  if (isRemoteAction || qualityPlayer.changing) return;
   socket.emit("video-pause", { time: customVideo.currentTime });
   updateStatus("Paused");
 });
 
 customVideo.addEventListener("seeked", () => {
-  if (isRemoteAction) return;
+  if (isRemoteAction || qualityPlayer.changing) return;
   socket.emit("video-seek", { time: customVideo.currentTime });
 });
 
@@ -191,7 +194,7 @@ customVideo.addEventListener("timeupdate", () => {
   updateBufferedBar();
 
   // Periodic heartbeat sync to room state every 4s
-  if (!isRemoteAction && !customVideo.paused && Math.abs(current - lastProgressTime) >= 4) {
+  if (!isRemoteAction && !qualityPlayer.changing && !customVideo.paused && Math.abs(current - lastProgressTime) >= 4) {
     lastProgressTime = current;
     socket.emit("video-progress", { time: current });
   }
@@ -237,10 +240,10 @@ socket.on("sync-state", (state) => {
 
   setRemoteAction(1600);
   currentPlayingSource = state.source;
-  const isDifferentSource = !customVideo.src || !isSameVideoSource(customVideo.src, state.source);
+  const isDifferentSource = !customVideo.src || !isSameVideoSource(qualityPlayer.source, state.source);
 
   if (isDifferentSource) {
-    customVideo.src = getSecuredVideoUrl(state.source);
+    setPlaybackSource(state.source);
     customVideo.currentTime = state.currentTime || 0;
   } else {
     alignPlaybackTime(state.currentTime || 0);
@@ -294,7 +297,7 @@ socket.on("change-source", ({ source, folder }) => {
   currentPlayingSource = source || "";
 
   if (!source) {
-    customVideo.src = "";
+    setPlaybackSource("");
     updateStatus("No video playing");
     updateHeroBillboard();
     renderCatalogue();
@@ -302,9 +305,9 @@ socket.on("change-source", ({ source, folder }) => {
     return;
   }
 
-  const isDifferentSource = !customVideo.src || !isSameVideoSource(customVideo.src, source);
+  const isDifferentSource = !customVideo.src || !isSameVideoSource(qualityPlayer.source, source);
   if (isDifferentSource) {
-    customVideo.src = getSecuredVideoUrl(source);
+    setPlaybackSource(source);
     customVideo.load();
     customVideo.muted = false;
     customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
@@ -591,7 +594,7 @@ if (btnCinemaFullscreen) btnCinemaFullscreen.addEventListener("click", toggleApp
 function playVideo(videoUrl, folderPath = null, clickedCard = null) {
   currentPlayingFolder = folderPath || null;
   currentPlayingSource = videoUrl;
-  customVideo.src = getSecuredVideoUrl(videoUrl);
+  setPlaybackSource(videoUrl);
   customVideo.load();
 
   // Explicit user gesture: Unmute audio and set volume to 100%!
@@ -951,7 +954,7 @@ function updateHeroBillboard() {
     return;
   }
 
-  const rawFilename = decodeURIComponent(pathBasename(customVideo.src));
+  const rawFilename = decodeURIComponent(pathBasename(currentPlayingSource || customVideo.src));
   const cleanTitle = formatMediaTitle(rawFilename);
   const folderName = currentPlayingFolder ? currentPlayingFolder.split("/").filter(Boolean).pop() : "Standalone Video";
 
@@ -1706,8 +1709,8 @@ function createFolderPosterCard(folder) {
 // Create a Minimal Video Card with Real Video Frame & Hover Preview
 function createVideoCard(video, folderPath) {
   const isCurrentlyPlaying = customVideo.src && (
-    customVideo.src.includes(encodeURIComponent(video.name)) ||
-    decodeURIComponent(customVideo.src).includes(video.name)
+    currentPlayingSource.includes(encodeURIComponent(video.name)) ||
+    decodeURIComponent(currentPlayingSource).includes(video.name)
   );
 
   const card = document.createElement("div");
@@ -2147,8 +2150,8 @@ function renderEpisodesDrawer() {
 
   folder.videos.forEach((v, index) => {
     const isPlayingThis = customVideo.src && (
-      customVideo.src.includes(encodeURIComponent(v.name)) ||
-      decodeURIComponent(customVideo.src).includes(v.name)
+      currentPlayingSource.includes(encodeURIComponent(v.name)) ||
+      decodeURIComponent(currentPlayingSource).includes(v.name)
     );
 
     const item = document.createElement("div");
@@ -2180,7 +2183,7 @@ function playNextInFolder(folderPath, forceNext = false) {
   const folder = findFolderByPath(currentLibraryData.folders || [], folderPath);
   if (!folder || !folder.videos || folder.videos.length === 0) return;
 
-  const currentPlayingFile = pathBasename(customVideo.src);
+  const currentPlayingFile = pathBasename(currentPlayingSource || customVideo.src);
   let currentIndex = folder.videos.findIndex(v => {
     return (
       decodeURIComponent(currentPlayingFile) === v.name ||

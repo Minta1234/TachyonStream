@@ -12,3 +12,5 @@ public/uploads/*
 public/thumbnails/*
 !public/thumbnails/.gitkeep
 folder-options-fixed.png
+
+public/adaptive/

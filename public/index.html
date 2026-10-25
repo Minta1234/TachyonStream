@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="vendor/treeselectjs/treeselectjs.css">
-  <link rel="stylesheet" href="style.css?v=7.2.0">
+  <link rel="stylesheet" href="style.css?v=7.3.0">
 </head>
 
 <body>
@@ -46,6 +46,7 @@
       </div>
 
       <div class="nav-right">
+        <label class="quality-control">Quality <select id="quality-select" aria-label="Video quality"><option value="auto">Auto</option><option value="original">Original</option></select><span id="quality-status" role="status">Select a video</span><button id="quality-retry" type="button" hidden>Retry quality</button></label>
         <!-- Audio Quick Toggle -->
         <button id="nav-btn-sound" class="nav-sound-btn" title="Audio Mute/Unmute">
           <span id="nav-sound-icon" class="svg-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></span>
@@ -362,7 +363,9 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="vendor/treeselectjs/treeselectjs.umd.js?v=1.0.2-fixed"></script>
-  <script src="app.js?v=7.2.0"></script>
+  <script src="/hls.min.js"></script>
+  <script src="/quality-player.js?v=2"></script>
+  <script src="app.js?v=7.3.0"></script>
 </body>
 
 </html>
