@@ -1,7 +1,7 @@
 # TachyonStream (ภาษาไทย)
 
 <p align="center">
-<a href="../README.md">คู่มือหลัก</a> | <a href="./README_JA.md">🇯🇵 日本語</a> | <a href="./README_TH.md">🇹🇭 ภาษาไทย</a>
+<a href="../README.md">English</a> | <a href="./README_JA.md">🇯🇵 日本語</a> | <a href="./README_TH.md">🇹🇭 ภาษาไทย</a>
 </p>
 
 ---

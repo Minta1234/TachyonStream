@@ -1,47 +1,48 @@
-# ⚡ TachyonStream
+# TachyonStream
 
-เว็บดูวิดีโอพร้อมกันแบบติดตั้งบนเซิร์ฟเวอร์ส่วนตัว ใช้ Express และ Socket.IO ซิงก์การเล่น หยุด และเลื่อนเวลา พร้อมคลังหนัง โฟลเดอร์ซ้อน และภาพปกอัตโนมัติ
+Self-hosted watch-together video streaming with Express and Socket.IO. Includes synchronized playback, nested folders, thumbnails, and adaptive HLS quality.
 
-[คู่มือ Discord และ Tunnel ภาษาไทย](docs/README_TH.md) · [日本語](docs/README_JA.md) · [MIT License](LICENSE)
+[English](README.md) · [ภาษาไทย](docs/README_TH.md) · [日本語](docs/README_JA.md) · [MIT License](LICENSE)
 
-## ความสามารถ
+## Features
 
-- ดูพร้อมกันในห้องเดียวกัน โดยเลือกห้องผ่าน `channel_id` ใน URL
-- สร้างโฟลเดอร์และโฟลเดอร์ย่อย ย้ายหนัง และลบหนังหรือโฟลเดอร์
-- เล่นตอนถัดไปในโฟลเดอร์ด้วย Auto-Next
-- อัปโหลดเป็นชังก์ขนาด 5 MB พร้อมลองส่งชังก์ที่ล้มเหลวซ้ำ
-- สร้างภาพปกและอ่านระยะเวลาวิดีโอด้วย FFmpeg/FFprobe หลังอัปโหลด
-- ใช้ภาพหนังภายในเป็นภาพปกโฟลเดอร์ รวมถึงหนังในโฟลเดอร์ย่อย โฟลเดอร์ว่างแสดงไอคอนโฟลเดอร์
-- เปิดเมนูจัดการจากปุ่มสามจุดมุมขวาล่างของการ์ดหนังและโฟลเดอร์
-- มีบอทสำหรับสร้างลิงก์เข้า Discord Activity ของแอปเดียวกันผ่านคำสั่ง `/watch`
+- Synchronize playback, pause, seeking, and video selection within a room.
+- Choose a room using the `channel_id` URL parameter.
+- Create nested folders, move videos, and delete videos or folders.
+- Play the next episode in the current folder with Auto-Next.
+- Upload videos in 5 MB chunks, with retries for failed chunks during the current upload.
+- Generate thumbnails and read video duration with FFmpeg/FFprobe after upload.
+- Use a video inside a folder or its descendants as the folder cover.
+- Open card actions using the three-dot button at the bottom right.
+- Choose Auto, Original, or an available HLS resolution independently on each device.
+- Create Discord Activity invitation links through the optional `/watch` bot command.
 
-การลองส่งชังก์ซ้ำทำงานระหว่างการอัปโหลดครั้งนั้น ยังไม่มีระบบอัปโหลดต่อหลังปิดหรือรีเฟรชหน้าเว็บ
+Uploads do not resume after the page is refreshed or closed. Browser playback depends on the container and codec; accepting an upload does not guarantee direct playback on every browser.
 
-## ขอบเขตการใช้งานและการป้องกัน
+## Access model
 
-โปรเจกต์นี้ไม่มีบัญชีผู้ใช้หรือรหัส Admin **ใครที่เข้าถึงหน้าเว็บได้ก็สามารถดู อัปโหลด ย้าย และลบข้อมูลในคลังได้** ผู้ที่เข้าห้องได้สามารถควบคุมการเล่นในห้องนั้นได้เช่นกัน
+There are no user accounts or administrator passwords. **Anyone who can access the website can watch, upload, move, and delete library content.** Anyone who joins a room can control its playback. Deleting a folder also deletes its contents.
 
-การป้องกันที่มีอยู่:
+Existing request protections include:
 
-- คำขอแก้ข้อมูลต้องมี session ของเครื่องเล่นที่ยังเชื่อมต่ออยู่
-- ตรวจ Origin และ Fetch Metadata เพื่อปฏิเสธคำขอ HTTP และการเชื่อมต่อ Socket.IO จากเว็บไซต์อื่น
-- ไฟล์วิดีโอและชังก์ไม่ถูกเสิร์ฟผ่าน static server แม้ใช้ URL ที่เข้ารหัสหรือเปลี่ยนตัวพิมพ์
-- การสตรีมผ่าน `/api/stream` ตรวจ Referer และ session ก่อนอ่านไฟล์
+- Library mutations require an active player session.
+- Origin and Fetch Metadata checks reject cross-site HTTP mutations and Socket.IO connections.
+- Uploaded videos and temporary chunks are not exposed through static serving, including encoded and case-varied URL attempts.
+- `/api/stream` and HLS playlists/segments validate the playback session and Referer.
 
-session และการตรวจต้นทางไม่ใช่การยืนยันตัวเจ้าของเซิร์ฟเวอร์ และไม่ได้ตรวจสมาชิกห้องเสียง Discord หากเปิดผ่านโดเมนสาธารณะ ผู้ที่เข้าถึงเว็บจะมีสิทธิ์จัดการคลังด้วย โค้ดและ URL ที่เบราว์เซอร์ใช้ยังสามารถดูผ่าน DevTools ได้
+These checks do not authenticate the server owner or verify Discord voice-channel membership. Room names are not access credentials. Browser code and request URLs remain visible in DevTools.
 
-## สิ่งที่ต้องติดตั้ง
+## Requirements
 
-- Node.js และ npm — ชุดทดสอบในสภาพแวดล้อมพัฒนานี้ใช้ Node.js 24
-- FFmpeg และ FFprobe ใน `PATH` สำหรับสร้างภาพปกและรันชุดทดสอบ
-- `cloudflared` เฉพาะกรณีใช้ Cloudflare Tunnel
-- Discord Application และ Bot token เฉพาะกรณีใช้บอทหรือ Activity
+- Node.js and npm. Development regression checks have used Node.js 24.
+- FFmpeg and FFprobe in `PATH`, or explicit executable paths in `.env`.
+- FFmpeg with `libx264` and AAC support for adaptive quality.
+- `cloudflared` when using Cloudflare Tunnel.
+- A Discord Application and bot token when using the bot or Activity integration.
 
-หากไม่มี FFmpeg/FFprobe เซิร์ฟเวอร์ยังรับไฟล์ได้ แต่การสร้างภาพปกฝั่งเซิร์ฟเวอร์จะล้มเหลวและบันทึกข้อผิดพลาดไว้ เบราว์เซอร์จะพยายามจับภาพแทนเมื่อรองรับการถอดรหัสวิดีโอนั้น
+Uploads can still be accepted without FFmpeg/FFprobe, but server thumbnails and adaptive conversion will fail. Browser thumbnail capture is a fallback only when the browser can decode the original video.
 
-## เริ่มต้นใช้งาน
-
-### 1. ดาวน์โหลดและติดตั้ง dependency
+## Quick start
 
 ```bash
 git clone https://github.com/Minta1234/TachyonStream.git
@@ -49,7 +50,7 @@ cd TachyonStream
 npm ci
 ```
 
-### 2. สร้างไฟล์ `.env`
+Create a local environment file.
 
 Windows PowerShell:
 
@@ -63,7 +64,7 @@ Linux/macOS:
 cp .env.example .env
 ```
 
-ตัวอย่างสำหรับเปิดผ่านโดเมนส่วนตัว ใช้ชื่อโดเมนตัวอย่างในเอกสารนี้เท่านั้น:
+Example configuration uses a placeholder hostname:
 
 ```env
 PORT=9815
@@ -72,132 +73,147 @@ TUNNEL_TOKEN=
 Discord_token=
 ```
 
-- `PORT`: พอร์ตเว็บเซิร์ฟเวอร์ ค่าเริ่มต้น `9815`
-- `STREAM_DOMAIN`: hostname ของเว็บที่อนุญาตให้เล่นวิดีโอ เช่น `stream.example.com` ไม่ใส่ `https://` หรือ path หากใช้เฉพาะ localhost เว้นว่างได้
-- `TUNNEL_TOKEN`: token ของ Tunnel สำหรับ Windows launcher เว้นว่างหากไม่ใช้ Tunnel
-- `Discord_token`: token ของบอท รองรับชื่อ `DISCORD_TOKEN` ด้วย หากตั้งทั้งสองชื่อ โค้ดบอทจะใช้ `Discord_token` ก่อน
-- `FFMPEG_PATH` และ `FFPROBE_PATH`: ตั้งเพิ่มเติมเมื่อต้องการระบุพาธ executable แทนการค้นหาใน `PATH`
+- `PORT`: web server port; defaults to `9815`.
+- `STREAM_DOMAIN`: allowed playback hostname, without a scheme or path. Leave empty for localhost-only use. `ALLOWED_DOMAIN` is a fallback when `STREAM_DOMAIN` is unset; `domain_authorized` is not supported.
+- `TUNNEL_TOKEN`: optional Cloudflare Tunnel token used by the Windows launcher.
+- `Discord_token`: optional bot token. `DISCORD_TOKEN` is also accepted; `Discord_token` takes precedence.
+- `FFMPEG_PATH` / `FFPROBE_PATH`: full executable paths when the server process cannot find the tools in `PATH`.
+- `DATA_DIR`: optional server data directory; defaults to `public`. Server uploads, chunks, thumbnails, and adaptive output use this directory.
 
-`domain_authorized` ยังไม่ใช่ชื่อตัวแปรที่โค้ดอ่าน ให้ใช้ `STREAM_DOMAIN` แทน ส่วน `ALLOWED_DOMAIN` เป็นชื่อสำรองเมื่อไม่ได้ตั้ง `STREAM_DOMAIN`
+Restart the affected processes after editing `.env`. Setting `STREAM_DOMAIN` does not create DNS records or configure a Tunnel.
 
-หลังเปลี่ยน `.env` ต้องรีสตาร์ตโปรเซสที่เกี่ยวข้อง การแก้ `STREAM_DOMAIN` ไม่ได้สร้าง DNS หรือเปลี่ยนการตั้งค่า Tunnel ให้อัตโนมัติ
-
-### 3. เปิดเว็บเซิร์ฟเวอร์
+Start the web server:
 
 ```bash
 npm start
 ```
 
-เปิด `http://localhost:9815` และกด `Ctrl+C` ในเทอร์มินัลเมื่อต้องการหยุด
-
-รันเฉพาะบอทในอีกเทอร์มินัลได้ด้วย:
+Open [localhost:9815](http://localhost:9815). Stop the foreground process with `Ctrl+C`. Run the optional bot in another terminal:
 
 ```bash
 npm run bot
 ```
 
-### 4. เริ่มและหยุดระบบเบื้องหลังบน Windows
+### Windows background launcher
 
 ```powershell
 .\start.bat
 ```
 
-launcher จะอ่าน `.env` หยุดโปรเซสเดิมตาม `stop.ps1` แล้วเปิดเว็บเซิร์ฟเวอร์และบอทแบบซ่อนหน้าต่าง หากมี `TUNNEL_TOKEN` จะเปิด `cloudflared` เพิ่มด้วย ต้องมี executable ใน `PATH`
+The launcher reads `.env`, invokes `stop.ps1`, and starts the web server and bot in hidden windows. It also starts `cloudflared` when `TUNNEL_TOKEN` is set. Required executables must be available to the launcher.
 
-หยุดระบบ:
+Stop the background processes:
 
 ```powershell
 .\stop.bat
 ```
 
-สคริปต์หยุดปัจจุบันใช้ทั้ง PID ที่บันทึกไว้ การค้นหาโปรเซสของโปรเจกต์ และโปรเซสที่ใช้พอร์ต **9815** ดังนั้นโปรแกรมอื่นที่ใช้พอร์ตนี้อาจถูกหยุดด้วย ส่วนการค้นหาพอร์ตยังไม่ได้ปรับตามค่า `PORT` ที่เปลี่ยนใน `.env`
+The current stop script checks saved process IDs, project processes, and processes listening on **port 9815**. An unrelated application on that port may also be stopped. The port lookup does not follow a custom `PORT` setting.
 
-ไฟล์บันทึกการทำงาน:
+Logs are stored in `server.log` / `server.error.log`, `bot.log` / `bot.error.log`, and `tunnel.log` / `tunnel.error.log`. The launcher records process IDs in `.processes.json`.
 
-- `server.log` / `server.error.log`: เว็บเซิร์ฟเวอร์
-- `bot.log` / `bot.error.log`: บอท Discord
-- `tunnel.log` / `tunnel.error.log`: Cloudflare Tunnel
-- `.processes.json`: PID ของโปรเซสที่ launcher เปิด
+## Domain and Tunnel setup
 
-## เปิดผ่านโดเมนและ Cloudflare Tunnel
+1. Configure a Tunnel hostname to forward to `http://localhost:9815`, or the configured port.
+2. Put the same hostname in `STREAM_DOMAIN` in the server's local `.env`.
+3. Set `TUNNEL_TOKEN` if the Windows launcher should start the Tunnel.
+4. Restart the affected processes. Check `tunnel.error.log` if the hostname is unreachable.
 
-1. สร้าง Tunnel และกำหนด hostname ของเว็บให้ชี้ไปที่ `http://localhost:9815` หรือพอร์ตที่ตั้งไว้
-2. ใส่ hostname เดียวกันใน `STREAM_DOMAIN` ของ `.env`
-3. ใส่ `TUNNEL_TOKEN` หากต้องการให้ Windows launcher เปิด Tunnel ด้วย
-4. เริ่มระบบใหม่ และตรวจ `tunnel.error.log` เมื่อเข้าโดเมนไม่ได้
+`npm start` starts only the web server; it does not start a Tunnel. Keep the real hostname and tokens in the server's `.env`, rather than frontend code or documentation.
 
-หากใช้ `npm start` โดยตรง คำสั่งนี้จะเปิดเฉพาะเว็บเซิร์ฟเวอร์ ต้องรัน Tunnel แยกต่างหาก
+## Library and rooms
 
-ไม่จำเป็นต้องใส่โดเมนจริงไว้ใน `server.js`, `public/app.js` หรือ README ค่าจริงควรอยู่ใน `.env` บนเครื่องเซิร์ฟเวอร์
+Select a movie in Library, or enter a folder to choose an episode. Upload uses the currently open folder as its initial destination; another destination can be selected. After upload, the server assembles the file and attempts thumbnail generation before playback starts.
 
-## การใช้งานคลังและห้องดูพร้อมกัน
+Use the three-dot card button for management actions. It supports clicking or Tab followed by Enter; Tab moves through its actions, and Esc closes the menu and restores focus. Preview media does not intercept card-button clicks. Hidden views do not receive pointer input or keyboard focus. Navigation and search wrap on smaller screens. Interface icons use SVG; native selection options use plain text.
 
-1. เปิดหน้า Library แล้วเลือกหนัง หรือเข้าโฟลเดอร์เพื่อเลือกตอน
-2. หน้า Upload ใช้โฟลเดอร์ที่กำลังเปิดอยู่เป็นปลายทาง และสามารถเลือกปลายทางอื่นจากรายการได้
-3. หลังอัปโหลด เซิร์ฟเวอร์จะประกอบไฟล์และพยายามสร้างภาพปกก่อนเริ่มเล่น จึงอาจมีช่วงรอประมวลผล
-4. ใช้ปุ่มสามจุดบนการ์ดเพื่อย้ายหรือลบข้อมูล การลบโฟลเดอร์จะลบเนื้อหาภายในด้วย
-5. เปิด Auto-Next เมื่อต้องการเล่นตอนถัดไปในโฟลเดอร์เดียวกัน
-
-ตัวอย่าง URL สำหรับห้องแยก:
+Example room:
 
 ```text
 http://localhost:9815/?channel_id=movie-night
 ```
 
-ทุกหน้าที่ใช้ `channel_id` เดียวกันจะใช้สถานะการเล่นร่วมกัน หากไม่ระบุ จะใช้ห้อง `default-voice-room` ชื่อห้องไม่ใช่รหัสลับหรือสิทธิ์เข้าห้อง
+Pages using the same `channel_id` share playback state. Omitting it uses `default-voice-room`.
 
-การเล่นวิดีโอขึ้นกับ container และ codec ที่เบราว์เซอร์รองรับ การอัปโหลดไฟล์สำเร็จไม่ได้รับประกันว่าเบราว์เซอร์ทุกตัวจะเล่นไฟล์นั้นได้
+## Keyboard shortcuts
 
-## คีย์ลัด (Keyboard shortcuts)
+Select a video before using playback shortcuts.
 
-เลือกหนังให้เครื่องเล่นมีแหล่งวิดีโอก่อนใช้คีย์ลัดควบคุมการเล่น:
+- **Space / K:** play or pause.
+- **Left / J:** seek back 10 seconds.
+- **Right / L:** seek forward 10 seconds.
+- **Up / Down:** adjust volume by 5% and unmute.
+- **M:** mute or unmute.
+- **F:** toggle fullscreen.
+- **Esc:** close a dialog, or return from Cinema/Upload to Library when an input or selection control is not focused. In fullscreen, the browser handles exiting fullscreen first.
+- **?:** show shortcut help. The navigation bar also has a help button.
 
-- **Space / K:** เล่นหรือหยุดชั่วคราว
-- **← / J:** ย้อนกลับ 10 วินาที
-- **→ / L:** เดินหน้า 10 วินาที
-- **↑ / ↓:** เพิ่มหรือลดเสียงครั้งละ 5% และยกเลิกการปิดเสียง
-- **M:** ปิดหรือเปิดเสียง
-- **F:** เข้า/ออกโหมดเต็มจอ
-- **Esc:** ปิดกล่องโต้ตอบ หรือกลับ Library จาก Cinema/Upload เมื่อไม่ได้โฟกัสช่องกรอกหรือรายการเลือก ขณะเต็มจอให้เบราว์เซอร์จัดการ Esc เพื่อออกเต็มจอก่อน
-- **?:** แสดงรายการคีย์ลัด หรือกดปุ่ม `?` บนแถบเมนู
+Letter shortcuts use physical English-keyboard positions. Playback shortcuts do not interfere with typing, focused controls, Upload, or open dialogs. Ctrl/Alt/Command combinations are left to the browser. Playback and seeking synchronize with the room; volume, fullscreen, and quality are local to each viewer.
 
-ปุ่มตัวอักษรอ้างอิงตำแหน่งแป้นภาษาอังกฤษ คีย์ลัดเครื่องเล่นไม่แทรกการพิมพ์ในช่องค้นหา ฟอร์ม รายการเลือก หรือปุ่มที่กำลังโฟกัส ไม่ทำงานในหน้า Upload หรือระหว่างเปิดกล่องโต้ตอบ และไม่แทนที่คีย์ลัด Ctrl/Alt/Command ของเบราว์เซอร์
+## Adaptive video quality
 
-การเล่น หยุด และเลื่อนเวลายังคงซิงก์กับห้องตามปุ่มควบคุมเดิม ส่วนเสียงและโหมดเต็มจอมีผลเฉพาะหน้าที่ใช้งาน
+The **Quality** menu offers:
 
-## Discord Activity และบอท
+- **Auto:** HLS adapts to bandwidth and buffer conditions. With hls.js, automatic quality is also capped to the player size.
+- **360p / 480p / 720p / 1080p:** select a fixed available resolution. Outputs do not exceed the source height. Sources below 360p use their height rounded down to an even number.
+- **Original:** play the original file directly, including while adaptive versions are being prepared.
 
-ต้องตั้งค่า Activity และ URL Mapping ของ Discord Application ให้เชื่อมต่อ HTTPS hostname ของเซิร์ฟเวอร์ก่อน บอทสร้างคำเชิญไปยัง Activity ของ Application เดียวกับบอท
+Opening a video queues background conversion on first use. While `Preparing quality · Original` is displayed, the original remains available if its codec is supported by the browser. Adaptive quality becomes available **after every configured rendition has finished**. Switching between Original and HLS preserves playback time and play/pause state, but may require a brief reload. Manual HLS changes take effect at a suitable subsequent segment.
 
-- เพิ่มบอทเข้าเซิร์ฟเวอร์ พร้อมสิทธิ์ดูช่อง ส่งข้อความ และสร้างคำเชิญ
-- ตั้ง `Discord_token` หรือ `DISCORD_TOKEN` ใน `.env`
-- ลงทะเบียน slash command ชื่อ `/watch` ให้ Application แยกต่างหาก: `bot.js` มีตัวรับคำสั่ง แต่ยังไม่มีสคริปต์ลงทะเบียนคำสั่งอัตโนมัติ
-- รัน `npm run bot` เข้าห้องเสียง แล้วใช้ `/watch` เมื่อคำสั่งพร้อมใช้งาน
-- ผลลัพธ์เป็นข้อความพร้อมลิงก์คำเชิญ ไม่ใช่การอัปโหลดหนังไปยัง Discord
+The converter creates H.264 video with AAC audio when an audio track exists, without modifying the original. Compatible browsers use locally served hls.js. Safari can fall back to native HLS; native Auto is controlled by the browser.
 
-ดูภาพประกอบใน [คู่มือภาษาไทย](docs/README_TH.md) หรือ [คู่มือภาษาญี่ปุ่น](docs/README_JA.md) การตั้งค่าบน Discord และการทำงานร่วมกับ proxy ต้องตรวจในสภาพแวดล้อมที่ใช้งานจริง
+Conversion runs one video at a time, with two encoder threads and up to four waiting jobs. Long videos can take substantial time to prepare. Jobs continue after the viewing page is closed. Existing output is reused while the original file's path, size, and modification time remain unchanged.
 
-## ภาพปกวิดีโอ
+Generated output is stored in `DATA_DIR/adaptive/`, defaulting to `public/adaptive/`, and is excluded from Git. Conversion estimates required space before starting, with a 512 MB free-space allowance. Old cache entries are not deleted automatically. Moving or deleting the original makes its old adaptive output unavailable; a moved video needs preparation at its new path. Monitor disk usage periodically.
 
-หนังใหม่สร้างภาพปกโดยอัตโนมัติหลังอัปโหลด ส่วนภาพปกของหนังที่มีอยู่แล้วสร้างเป็นชุดได้ด้วย:
+Playlists and segments require a valid session and Referer and are not exposed as static files or shared CDN cache entries. If conversion fails, disk space is insufficient, or HLS is unsupported, Original remains available subject to browser codec support. Auto cannot guarantee uninterrupted playback on a connection slower than the lowest rendition.
+
+### Only Auto and Original appear
+
+Check the status beside Quality. Wait while conversion is queued or processing. If FFmpeg/FFprobe cannot be found, set full `FFMPEG_PATH` and `FFPROBE_PATH` values in `.env`, restart the web server, refresh the page, and use **Retry quality**. Disk-space and conversion failures display a reason without exposing private file paths.
+
+## Streaming performance
+
+- Open-ended byte ranges stream continuously with Node backpressure instead of forcing another HTTP request every 3 MB. Suffix ranges support reading metadata at the end of MP4 files; HEAD does not read the video body.
+- File metadata is read asynchronously to reduce event-loop blocking.
+- Hover previews start after 700 ms and are suppressed during main playback, in hidden tabs, or when the browser reports Data Saver or 2G.
+- Posters use lazy loading and asynchronous decoding. Browser thumbnail fallback runs one job at a time and pauses its queue during playback or in hidden tabs.
+- Overlapping library refreshes are serialized. Unchanged data does not rebuild cards or dropdowns; old observers and queued card tasks are cleared during rebuilding.
+
+Session validation and restrictions on shared video caching remain enabled. Server upload bandwidth must support the combined bitrate of viewers. Cross-country performance still needs measurement from the actual viewing location.
+
+## Discord Activity and bot
+
+Configure the Discord Application's Activity and URL Mapping to use the server's HTTPS hostname. The bot creates an invitation to the Activity belonging to that same Application.
+
+- Invite the bot with permission to view channels, send messages, and create invitations.
+- Set `Discord_token` or `DISCORD_TOKEN` in `.env`.
+- Register the `/watch` slash command separately. `bot.js` handles the command but does not automatically register it.
+- Run `npm run bot`, join a voice channel, and use `/watch` after registration.
+
+The response contains an invitation link; videos are not uploaded to Discord. See the illustrated [Thai guide](docs/README_TH.md) or [Japanese guide](docs/README_JA.md). Discord and proxy integration require validation in the deployed environment.
+
+## Thumbnails
+
+New uploads attempt server-side thumbnail generation automatically. Generate missing thumbnails for existing videos:
 
 ```bash
 npm run thumbnails
 ```
 
-คำสั่งนี้อ่านคลังเริ่มต้นใน `public/uploads` และข้ามไฟล์ที่มีภาพปกอยู่แล้ว หากต้องการสร้างทับภาพปกเดิม:
+Regenerate existing thumbnails:
 
 ```bash
 npm run thumbnails -- --refresh
 ```
 
-ภาพจะถูกบันทึกใน `public/thumbnails` และระยะเวลาจะอยู่ใน `metadata.json` โดยไม่แก้ไฟล์วิดีโอ เมื่อย้ายหนังผ่านหน้าเว็บ ภาพปกและข้อมูลระยะเวลาจะถูกคัดลอกไปยังพาธใหม่ด้วย
+This script uses `public/uploads` and `public/thumbnails`, rather than the server's custom `DATA_DIR`. Images and `metadata.json` are generated without modifying videos. Moving videos through the UI preserves thumbnail and duration metadata at the new path.
 
-## ป้องกันโดเมนและข้อมูลลับติด GitHub
+## Keep private configuration out of Git
 
-`.gitignore` กัน `.env`, log, ไฟล์สำรอง, ข้อมูลโปรเซส และไฟล์ในคลังวิดีโอ/ภาพปกไว้ ส่วน `.env.example` เป็นไฟล์ตัวอย่างที่ติด Git ได้ จึงต้องใช้ค่าว่างหรือ placeholder เท่านั้น
+`.gitignore` excludes `.env`, logs, backups, launcher state, and generated video, thumbnail, chunk, and adaptive data. `.env.example` is tracked and must contain only placeholders or empty values.
 
-ตรวจไฟล์ก่อน commit:
+Before committing:
 
 ```bash
 git status --short
@@ -205,83 +221,49 @@ git check-ignore .env
 git ls-files .env
 ```
 
-คำสั่งสุดท้ายควรไม่มีผลลัพธ์ ตรวจ diff และภาพหน้าจอที่แนบในเอกสารด้วย โดยเฉพาะโดเมน token และที่อยู่เซิร์ฟเวอร์
+The last command should produce no output. Review diffs and documentation screenshots for private hostnames, tokens, and server addresses. Ignoring a file does not remove an earlier committed copy; previously exposed secrets require separate history cleanup and token rotation.
 
-การเพิ่ม `.gitignore` ไม่ได้ลบข้อมูลที่เคย commit ไปแล้ว หากเคยเผยแพร่ข้อมูลลับ ต้องจัดการประวัติ Git และเปลี่ยน token ที่เกี่ยวข้องแยกต่างหาก
-
-## ทดสอบ
+## Tests
 
 ```bash
 npm test
 ```
 
-ชุดทดสอบใช้เว็บเซิร์ฟเวอร์และข้อมูลจำลองในโฟลเดอร์ชั่วคราว ครอบคลุมคำขอแบบไม่ใช้รหัส การตรวจ session และต้นทาง การบล็อก static URL การประกอบชังก์ การสตรีม ภาพปกของหนังใหม่/โฟลเดอร์ซ้อน การย้ายไฟล์ และการแสดงชื่อโฟลเดอร์ ต้องมี FFmpeg/FFprobe เพื่อสร้างวิดีโอจำลอง
+Regression checks use an isolated server and temporary data. They cover session/origin validation, static-path blocking, upload assembly, byte ranges and HEAD, thumbnails, folder labels, file moves, keyboard safeguards, inactive views, preview restrictions, library refresh coalescing, real HLS conversion, protected playlists/segments, quality selection, time preservation, and conversion retry after a missing executable. FFmpeg/FFprobe are required for synthetic fixtures.
 
-การทดสอบเหล่านี้ไม่ยืนยันการเล่นหลายคนผ่านโดเมนจริง Cloudflare Tunnel หรือ Discord Activity ทั้งระบบ
+These checks do not prove end-to-end Discord Activity, Cloudflare Tunnel, real-device Safari/mobile behavior, or multi-viewer performance over the deployed domain.
 
-## แก้ปัญหาเบื้องต้น
+## Troubleshooting
 
-- **วิดีโอขึ้น `403` บนโดเมนจริง:** ตรวจ `STREAM_DOMAIN` และรีสตาร์ตเซิร์ฟเวอร์ จากนั้นรีเฟรชหน้าเว็บเพื่อรับ session ใหม่
-- **อัปโหลดขึ้น `401`:** รอเครื่องเล่นเชื่อมต่อให้เป็น Synced แล้วลองใหม่ ไม่ต้องกรอกรหัส Admin
-- **คำขอขึ้น `403` ขณะจัดการคลัง:** ตรวจว่าหน้าเว็บและ API ใช้ต้นทางเดียวกัน รวมถึง Host ที่ reverse proxy ส่งต่อมา
-- **ไม่มีภาพปก:** ตรวจ FFmpeg/FFprobe ใน `PATH` หรือพาธที่ตั้งไว้ และอ่านข้อความใน `server.error.log`
-- **ไม่มีคำสั่ง `/watch`:** ตรวจการลงทะเบียน slash command ของ Application และการเพิ่มบอทเข้าเซิร์ฟเวอร์
-- **เห็นชื่อเป็น `%20`:** โหลดหน้าใหม่ด้วย `Ctrl+F5` เพื่อรับ JavaScript ล่าสุด
-- **ข้อความ `XHR finished loading` / `Fetch finished loading`:** เป็น log การรับส่งข้อมูล ไม่ใช่ข้อผิดพลาดด้วยตัวเอง ให้ดู HTTP status และข้อความตอบกลับประกอบ
+- **Playback returns `403`:** check `STREAM_DOMAIN`, restart the server, and refresh the page to obtain a new session.
+- **Upload returns `401`:** wait for the player to connect and show Synced, then retry. No administrator password is required.
+- **Library mutation returns `403`:** check that the page and API share an origin, including the Host forwarded by the reverse proxy.
+- **Missing thumbnails or quality options:** check FFmpeg/FFprobe paths, available disk space, the quality status, and server error logs.
+- **Missing `/watch`:** check slash-command registration and the bot's server membership.
+- **Names contain `%20`:** refresh with `Ctrl+F5` to load current frontend assets.
+- **`XHR finished loading` / `Fetch finished loading`:** these messages alone are informational. Inspect the response status and body for an actual failure.
 
-## โครงสร้างหลัก
+## Project layout
 
 ```text
-server.js                      เว็บเซิร์ฟเวอร์ API และ Socket.IO
-bot.js                         บอทสร้างคำเชิญ Discord Activity
-public/app.js                  เครื่องเล่นและหน้าจัดการคลัง
-public/style.css               รูปแบบหน้าเว็บ
-public/uploads/                คลังวิดีโอ
-public/temp_chunks/            ชังก์ระหว่างอัปโหลด
-public/thumbnails/             ภาพปกและข้อมูลระยะเวลา
-lib/thumbnails.js              ตัวสร้างภาพปกด้วย FFmpeg
-scripts/generate-thumbnails.mjs คำสั่งสร้างภาพปกทั้งคลัง
-tests/regression.mjs           ชุดทดสอบ regression
-launch.ps1 / start.bat          เริ่มระบบบน Windows
-stop.ps1 / stop.bat             หยุดระบบบน Windows
+server.js                       HTTP API, streaming, and Socket.IO
+bot.js                          Discord Activity invitation bot
+public/app.js                   Player and library interface
+public/quality-player.js        Auto/manual HLS playback
+public/style.css                Interface styles
+public/uploads/                 Original videos
+public/temp_chunks/             In-progress upload chunks
+public/thumbnails/              Posters and duration metadata
+public/adaptive/                Generated HLS output
+lib/thumbnails.js               FFmpeg thumbnail generation
+lib/http-range.js               HTTP byte-range parsing
+lib/adaptive-video.js           Adaptive conversion queue and storage
+scripts/generate-thumbnails.mjs Batch thumbnail command
+tests/regression.mjs            Regression checks
+launch.ps1 / start.bat           Windows background startup
+stop.ps1 / stop.bat              Windows shutdown
 ```
 
-## สัญญาอนุญาต
+## License
 
 [MIT License](LICENSE)
-
-## การใช้งานเมนูการ์ด
-
-ปุ่มสามจุดอยู่มุมขวาล่างของการ์ดหนังและโฟลเดอร์ เปิดได้ด้วยการคลิกหรือ Tab แล้ว Enter เมนูรองรับ Tab เพื่อเลือกคำสั่ง และ Esc เพื่อปิดพร้อมคืนโฟกัสที่ปุ่มเดิม การพรีวิวไม่ขวางปุ่ม และหน้าที่ซ่อนอยู่ไม่รับคลิกหรือโฟกัส แถบเมนูและช่องค้นหาจัดเรียงใหม่บนหน้าจอเล็ก
-
-ไอคอนในหน้าเว็บใช้ SVG แทนอีโมจิ รวมถึง Auto-Next อัปโหลด โฟลเดอร์ และสถานะคลังว่าง รายการเลือกแบบ native แสดงชื่อเป็นข้อความตามข้อจำกัดของเบราว์เซอร์
-
-## การปรับประสิทธิภาพการสตรีม
-
-- คำขอ byte range ปลายเปิดส่งข้อมูลต่อเนื่องตาม backpressure แทนการตัดทุก 3 MB จึงลดรอบ HTTP โดยไม่โหลดไฟล์ทั้งก้อนเข้า RAM รองรับ suffix range สำหรับ metadata ท้าย MP4 และ HEAD โดยไม่อ่านเนื้อไฟล์
-- อ่านข้อมูลขนาดไฟล์แบบ asynchronous เพื่อลดการบล็อกคำขออื่น
-- พรีวิวเริ่มเมื่อชี้ค้าง 700 ms และหยุดระหว่างเล่นหนังหรือซ่อนแท็บ ไม่เริ่มเมื่อเบราว์เซอร์แจ้ง Data Saver หรือเครือข่าย 2G
-- ภาพปกโหลดแบบ lazy และ decode แบบ asynchronous งานจับภาพสำรองทำทีละหนึ่งงาน และพักคิวระหว่างเล่นหนังหรือซ่อนแท็บ
-- รวมการโหลดคลังที่ซ้อนกัน ไม่สร้างการ์ดและ dropdown ใหม่เมื่อข้อมูลไม่เปลี่ยน ล้าง observer และคิวของการ์ดเก่าเมื่อสร้างรายการใหม่
-
-การตรวจ session และการห้าม shared/CDN cache สำหรับวิดีโอยังคงทำงาน ก่อนเตรียม HLS เสร็จ ระบบส่งไฟล์ต้นฉบับ และเมื่อเตรียมแล้วใช้ Auto ตามหัวข้อคุณภาพวิดีโอ ความเร็วอัปโหลดต้องเพียงพอกับ bitrate รวมของผู้ชม การเปลี่ยนนี้ไม่แก้ MP4 เดิมหรือแปลงไฟล์ในคลัง และไม่สามารถรับประกันเส้นทางไทย–ไต้หวันได้โดยไม่ทดสอบจากปลายทางจริง
-
-## คุณภาพวิดีโอ Auto และเลือกเอง
-
-เมนู **Quality** บนแถบด้านบนมี **Auto**, **Original** และคุณภาพที่สร้างเสร็จแล้ว:
-
-- **Auto:** HLS ปรับคุณภาพตามแบนด์วิดท์และบัฟเฟอร์ ในเบราว์เซอร์ที่ใช้ hls.js จะจำกัดคุณภาพตามขนาดเครื่องเล่นด้วย
-- **360p / 480p / 720p / 1080p:** ล็อกคุณภาพเฉพาะเครื่องที่เลือก โดยมีเฉพาะระดับที่ไม่เกินความสูงต้นฉบับ ไฟล์ที่เล็กกว่า 360p ใช้ความสูงเดิมที่ปัดเป็นเลขคู่
-- **Original:** เล่นไฟล์ต้นฉบับโดยตรง ใช้ระหว่างรอแปลงหรือเมื่อ HLS ใช้ไม่ได้
-
-เมื่อเปิดหนังครั้งแรก เซิร์ฟเวอร์จะเตรียม HLS เบื้องหลัง ระหว่าง `Preparing quality · Original` ยังดูต้นฉบับได้ เมื่องานเสร็จระบบจะเปลี่ยนเป็น Auto โดยรักษาเวลาเล่นและสถานะเล่น/หยุด การเปลี่ยนคุณภาพไม่เปลี่ยน URL หนังที่ซิงก์ในห้อง และไม่บังคับคุณภาพของผู้ชมคนอื่น การเปลี่ยนระดับ HLS ปกติรอส่วนวิดีโอถัดไปที่เหมาะสม ส่วนการสลับ Original/HLS อาจรอโหลดสั้น ๆ
-
-ต้องติดตั้ง dependency ด้วย `npm ci` และมี FFmpeg/FFprobe พร้อม `libx264` และ AAC ใช้ `FFMPEG_PATH`/`FFPROBE_PATH` ได้ตามเดิม เบราว์เซอร์ที่รองรับ MediaSource ใช้ hls.js ที่เซิร์ฟเวอร์ส่งให้ ส่วน Safari ที่ไม่รองรับ hls.js ใช้ native HLS; Auto native ตัดสินใจโดยเบราว์เซอร์
-
-การแปลงทำทีละหนึ่งเรื่อง ใช้ encoder 2 threads และรับคิวรอไม่เกิน 4 เรื่อง เวลาเตรียมขึ้นกับความยาวหนังและ CPU หนังยาวอาจใช้เวลานาน โดยจะเปิดคุณภาพหลังสร้างครบทุกระดับแล้ว งานแปลงยังทำต่อแม้ปิดหน้าดู การแปลงซ้ำไม่จำเป็นหากต้นฉบับและ cache เดิมไม่เปลี่ยน
-
-ไฟล์สร้างใหม่อยู่ใน `DATA_DIR/adaptive/` (ค่าเริ่มต้น `public/adaptive/`) และไม่รวมใน Git ใช้พื้นที่ดิสก์เพิ่ม มีการประมาณพื้นที่ก่อนเริ่มงานพร้อมเผื่อว่าง 512 MB; cache เก่าไม่ได้ลบอัตโนมัติ ควรตรวจพื้นที่เป็นระยะ หากย้ายหรือลบต้นฉบับ cache เดิมจะเล่นไม่ได้และเมื่อเปิดตำแหน่งใหม่ต้องสร้างใหม่ ไฟล์ต้นฉบับไม่ถูกแก้ไข
-
-Playlist และ segment ต้องผ่าน session/referer เช่นเดียวกับการสตรีมเดิม ไม่เปิดผ่าน static URL หรือ shared CDN cache โดยตรง หาก FFmpeg ล้มเหลว พื้นที่ไม่พอ หรือเบราว์เซอร์เล่น HLS ไม่ได้ จะยังใช้ Original ได้ Auto ไม่รับประกันความลื่นเมื่อเครือข่ายช้ากว่าระดับต่ำสุด
-
-หากเมนู Quality มีแค่ Auto/Original ให้ดูข้อความสถานะ หากกำลังเตรียมให้รอ หากแจ้งว่าไม่พบ FFmpeg/FFprobe ให้ตั้ง `FFMPEG_PATH` และ `FFPROBE_PATH` เป็นพาธเต็มใน `.env` แล้วรีสตาร์ตเฉพาะเซิร์ฟเวอร์ จากนั้นกด **Retry quality**; กรณีพื้นที่ดิสก์ไม่พอหรือแปลงล้มเหลวจะแสดงเหตุผลโดยไม่เปิดเผยพาธไฟล์ส่วนตัว

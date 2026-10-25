@@ -10,7 +10,7 @@
 [![Discord.js](https://img.shields.io/badge/Discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.js.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](../LICENSE)
 
-[メインガイド](../README.md) • [日本語](README_JA.md) • [ภาษาไทย](README_TH.md)
+[English](../README.md) • [日本語](README_JA.md) • [ภาษาไทย](README_TH.md)
 
 </div>
 
