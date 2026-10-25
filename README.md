@@ -1,255 +1,257 @@
-<div align="center">
-
 # ⚡ TachyonStream
 
-**Self-hosted Real-Time Synchronized Video Streaming Platform & Discord Watch Together Activity**
+เว็บดูวิดีโอพร้อมกันแบบติดตั้งบนเซิร์ฟเวอร์ส่วนตัว ใช้ Express และ Socket.IO ซิงก์การเล่น หยุด และเลื่อนเวลา พร้อมคลังหนัง โฟลเดอร์ซ้อน และภาพปกอัตโนมัติ
 
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat-square&logo=express&logoColor=white)](https://expressjs.com/)
-[![Socket.IO](https://img.shields.io/badge/Socket.IO-4.x-010101?style=flat-square&logo=socket.io&logoColor=white)](https://socket.io/)
-[![Discord.js](https://img.shields.io/badge/Discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.js.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
+[คู่มือ Discord และ Tunnel ภาษาไทย](docs/README_TH.md) · [日本語](docs/README_JA.md) · [MIT License](LICENSE)
 
-[English](README.md) • [日本語](docs/README_JA.md) • [ภาษาไทย](docs/README_TH.md)
+## ความสามารถ
 
-</div>
+- ดูพร้อมกันในห้องเดียวกัน โดยเลือกห้องผ่าน `channel_id` ใน URL
+- สร้างโฟลเดอร์และโฟลเดอร์ย่อย ย้ายหนัง และลบหนังหรือโฟลเดอร์
+- เล่นตอนถัดไปในโฟลเดอร์ด้วย Auto-Next
+- อัปโหลดเป็นชังก์ขนาด 5 MB พร้อมลองส่งชังก์ที่ล้มเหลวซ้ำ
+- สร้างภาพปกและอ่านระยะเวลาวิดีโอด้วย FFmpeg/FFprobe หลังอัปโหลด
+- ใช้ภาพหนังภายในเป็นภาพปกโฟลเดอร์ รวมถึงหนังในโฟลเดอร์ย่อย โฟลเดอร์ว่างแสดงไอคอนโฟลเดอร์
+- เปิดเมนูจัดการจากปุ่มสามจุดมุมขวาล่างของการ์ดหนังและโฟลเดอร์
+- มีบอทสำหรับสร้างลิงก์เข้า Discord Activity ของแอปเดียวกันผ่านคำสั่ง `/watch`
 
----
+การลองส่งชังก์ซ้ำทำงานระหว่างการอัปโหลดครั้งนั้น ยังไม่มีระบบอัปโหลดต่อหลังปิดหรือรีเฟรชหน้าเว็บ
 
-## 📖 Overview
+## ขอบเขตการใช้งานและการป้องกัน
 
-**TachyonStream** is a lightweight, responsive, and secure self-hosted media streaming server designed for shared watching experiences. It enables seamless real-time playback synchronization across rooms, chunked video uploads with resumption, automatic thumbnail generation, dynamic hierarchical folder organization, and direct integration as a **Discord Watch Together Voice Activity**.
+โปรเจกต์นี้ไม่มีบัญชีผู้ใช้หรือรหัส Admin **ใครที่เข้าถึงหน้าเว็บได้ก็สามารถดู อัปโหลด ย้าย และลบข้อมูลในคลังได้** ผู้ที่เข้าห้องได้สามารถควบคุมการเล่นในห้องนั้นได้เช่นกัน
 
----
+การป้องกันที่มีอยู่:
 
-## ✨ Key Features
+- คำขอแก้ข้อมูลต้องมี session ของเครื่องเล่นที่ยังเชื่อมต่ออยู่
+- ตรวจ Origin และ Fetch Metadata เพื่อปฏิเสธคำขอ HTTP และการเชื่อมต่อ Socket.IO จากเว็บไซต์อื่น
+- ไฟล์วิดีโอและชังก์ไม่ถูกเสิร์ฟผ่าน static server แม้ใช้ URL ที่เข้ารหัสหรือเปลี่ยนตัวพิมพ์
+- การสตรีมผ่าน `/api/stream` ตรวจ Referer และ session ก่อนอ่านไฟล์
 
-- 🔄 **Real-Time Synchronized Playback:** Instant sync for play, pause, seek, playback rate, and room video switching powered by Socket.IO rooms.
-- 📁 **Smart Folder & Library Management:** Hierarchical folder navigation, nested directory support, video relocation, and automatic cascading folder covers.
-- 🖼️ **Automated Video Thumbnails:** Server-side FFmpeg thumbnail generation on upload with duration extraction, batch generator script, and client-side browser snapshot fallback.
-- 🚀 **Chunked Resumable Uploads:** Fast, reliable uploads for large video files with slice assembly, cleanup, and integrity verification.
-- 🤖 **Discord Activity & Bot Integration:** Includes a Discord bot using Discord's Embedded App SDK to launch Watch Together sessions directly inside Voice Channels via `/watch`.
-- 🛡️ **Zero-Trust Security Architecture:**
-  - **No Plain Static Serving:** Raw access to `public/uploads/` and `temp_chunks/` is strictly blocked (even for case-manipulated or URL-encoded paths). Media is securely served through `/api/stream` with HTTP Range and session validation.
-  - **Session Verification:** Requires active player session tokens (`X-Playback-Session`) for library modifications and streaming requests.
-  - **Origin & Metadata Protection:** Validates Origin and `Sec-Fetch-*` headers to reject unauthorized cross-origin API calls and cross-site WebSocket hijackings.
+session และการตรวจต้นทางไม่ใช่การยืนยันตัวเจ้าของเซิร์ฟเวอร์ และไม่ได้ตรวจสมาชิกห้องเสียง Discord หากเปิดผ่านโดเมนสาธารณะ ผู้ที่เข้าถึงเว็บจะมีสิทธิ์จัดการคลังด้วย โค้ดและ URL ที่เบราว์เซอร์ใช้ยังสามารถดูผ่าน DevTools ได้
 
----
+## สิ่งที่ต้องติดตั้ง
 
-## 🛠️ Prerequisites
+- Node.js และ npm — ชุดทดสอบในสภาพแวดล้อมพัฒนานี้ใช้ Node.js 24
+- FFmpeg และ FFprobe ใน `PATH` สำหรับสร้างภาพปกและรันชุดทดสอบ
+- `cloudflared` เฉพาะกรณีใช้ Cloudflare Tunnel
+- Discord Application และ Bot token เฉพาะกรณีใช้บอทหรือ Activity
 
-- **[Node.js](https://nodejs.org/)** (v18.0.0 or higher recommended)
-- **[FFmpeg](https://ffmpeg.org/)** and **FFprobe** installed and added to your system `PATH` (optional for playback, required for automated thumbnail extraction).
-  - *Alternatively, set custom paths via `FFMPEG_PATH` and `FFPROBE_PATH` environment variables.*
+หากไม่มี FFmpeg/FFprobe เซิร์ฟเวอร์ยังรับไฟล์ได้ แต่การสร้างภาพปกฝั่งเซิร์ฟเวอร์จะล้มเหลวและบันทึกข้อผิดพลาดไว้ เบราว์เซอร์จะพยายามจับภาพแทนเมื่อรองรับการถอดรหัสวิดีโอนั้น
 
----
+## เริ่มต้นใช้งาน
 
-## 🚀 Quick Start
-
-### 1. Clone & Install Dependencies
+### 1. ดาวน์โหลดและติดตั้ง dependency
 
 ```bash
 git clone https://github.com/Minta1234/TachyonStream.git
 cd TachyonStream
-npm install
+npm ci
 ```
 
-### 2. Configure Environment
+### 2. สร้างไฟล์ `.env`
 
-Copy the sample environment file:
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Linux/macOS:
 
 ```bash
 cp .env.example .env
 ```
 
-Available environment variables:
+ตัวอย่างสำหรับเปิดผ่านโดเมนส่วนตัว ใช้ชื่อโดเมนตัวอย่างในเอกสารนี้เท่านั้น:
 
-| Variable | Description | Default |
-|---|---|---|
-| `PORT` | Web server listening port | `9815` |
-| `TUNNEL_TOKEN` | Optional Cloudflare Tunnel token for public access | *(unset)* |
-| `DISCORD_TOKEN` | Bot token for the Discord Watch Together launcher | *(unset)* |
-| `DISCORD_CLIENT_ID` | Discord Application Client ID | *(unset)* |
-| `FFMPEG_PATH` | Path to `ffmpeg` binary | System PATH |
-| `FFPROBE_PATH` | Path to `ffprobe` binary | System PATH |
+```env
+PORT=9815
+STREAM_DOMAIN=stream.example.com
+TUNNEL_TOKEN=
+Discord_token=
+```
 
-### 3. Run the Server
+- `PORT`: พอร์ตเว็บเซิร์ฟเวอร์ ค่าเริ่มต้น `9815`
+- `STREAM_DOMAIN`: hostname ของเว็บที่อนุญาตให้เล่นวิดีโอ เช่น `stream.example.com` ไม่ใส่ `https://` หรือ path หากใช้เฉพาะ localhost เว้นว่างได้
+- `TUNNEL_TOKEN`: token ของ Tunnel สำหรับ Windows launcher เว้นว่างหากไม่ใช้ Tunnel
+- `Discord_token`: token ของบอท รองรับชื่อ `DISCORD_TOKEN` ด้วย หากตั้งทั้งสองชื่อ โค้ดบอทจะใช้ `Discord_token` ก่อน
+- `FFMPEG_PATH` และ `FFPROBE_PATH`: ตั้งเพิ่มเติมเมื่อต้องการระบุพาธ executable แทนการค้นหาใน `PATH`
 
-#### Development / Direct Run
+`domain_authorized` ยังไม่ใช่ชื่อตัวแปรที่โค้ดอ่าน ให้ใช้ `STREAM_DOMAIN` แทน ส่วน `ALLOWED_DOMAIN` เป็นชื่อสำรองเมื่อไม่ได้ตั้ง `STREAM_DOMAIN`
+
+หลังเปลี่ยน `.env` ต้องรีสตาร์ตโปรเซสที่เกี่ยวข้อง การแก้ `STREAM_DOMAIN` ไม่ได้สร้าง DNS หรือเปลี่ยนการตั้งค่า Tunnel ให้อัตโนมัติ
+
+### 3. เปิดเว็บเซิร์ฟเวอร์
+
 ```bash
 npm start
 ```
-The web dashboard will be accessible at: `http://localhost:9815`
 
-#### Background Service (Windows)
-To start both the streaming server and background tasks silently without leaving a terminal window open:
+เปิด `http://localhost:9815` และกด `Ctrl+C` ในเทอร์มินัลเมื่อต้องการหยุด
 
-```cmd
-start.bat
+รันเฉพาะบอทในอีกเทอร์มินัลได้ด้วย:
+
+```bash
+npm run bot
 ```
 
-To stop all managed background processes:
+### 4. เริ่มและหยุดระบบเบื้องหลังบน Windows
 
-```cmd
-stop.bat
-```
-
-*(Process IDs are tracked in `.processes.json`, ensuring unrelated Node.js instances are never killed).*
-
----
-
-## 🌐 Cloudflare Tunnel Setup (Public Access & HTTPS)
-
-Discord Activities run inside an iframe hosted on Discord's CDN (`*.discordsays.com`), requiring a secure public **HTTPS** endpoint. Cloudflare Tunnel exposes your local TachyonStream server to the internet without port forwarding or exposing your home IP.
-
-### Step 1: Install `cloudflared`
-- **Windows:**
-  ```powershell
-  winget install --id Cloudflare.cloudflared
-  ```
-  *(Or download `cloudflared.exe` from [Cloudflare Releases](https://github.com/cloudflare/cloudflared/releases) and place it in your system PATH).*
-- **Linux:**
-  ```bash
-  sudo apt install cloudflared
-  ```
-
-### Step 2: Create a Tunnel in Cloudflare Zero Trust
-1. Navigate to [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/) > **Networks** > **Tunnels**.
-2. Click **Create a Tunnel** > Select **Cloudflare Tunnel (cloudflared)**.
-3. Enter a tunnel name (e.g., `tachyonstream`) and save.
-4. Copy your **Tunnel Token** (the base64 string starting with `ey...`).
-
-### Step 3: Configure Public Hostname
-In the tunnel configuration:
-1. Go to the **Public Hostnames** tab and click **Add a public hostname**.
-2. Fill in:
-   - **Subdomain:** e.g., `stream`
-   - **Domain:** e.g., `yourdomain.com` (full URL: `stream.yourdomain.com`)
-   - **Service Type:** `HTTP`
-   - **URL:** `localhost:9815`
-3. Save the hostname.
-
-### Step 4: Run with TachyonStream
-Set the `TUNNEL_TOKEN` environment variable in your launcher:
 ```powershell
-$env:TUNNEL_TOKEN="your_tunnel_token_here"
+.\start.bat
 ```
-Or start via `start.bat` — `launch.ps1` automatically detects `TUNNEL_TOKEN`, spawns `cloudflared tunnel run` in the background, and outputs logs to `tunnel.log`.
 
----
+launcher จะอ่าน `.env` หยุดโปรเซสเดิมตาม `stop.ps1` แล้วเปิดเว็บเซิร์ฟเวอร์และบอทแบบซ่อนหน้าต่าง หากมี `TUNNEL_TOKEN` จะเปิด `cloudflared` เพิ่มด้วย ต้องมี executable ใน `PATH`
 
-## 🎮 Discord Developer Portal & Activity Setup
+หยุดระบบ:
 
-To configure TachyonStream as an official Discord Voice Activity:
+```powershell
+.\stop.bat
+```
 
-### 1. Application Creation
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Click **New Application** (e.g., `Tachyon Stream`).
+สคริปต์หยุดปัจจุบันใช้ทั้ง PID ที่บันทึกไว้ การค้นหาโปรเซสของโปรเจกต์ และโปรเซสที่ใช้พอร์ต **9815** ดังนั้นโปรแกรมอื่นที่ใช้พอร์ตนี้อาจถูกหยุดด้วย ส่วนการค้นหาพอร์ตยังไม่ได้ปรับตามค่า `PORT` ที่เปลี่ยนใน `.env`
 
-### 2. Activity Settings (`Activities` > `Settings`)
-Configure the Activity surface:
-- **Enable Activities:** Toggle **ON** (allows users to launch the activity).
-- **Age Gate:** **OFF** (toggle ON only if serving 18+ content).
-- **Proxy Authentication:** **OFF**.
-- **Maximum Participants:** Set to `5` (or desired capacity).
-- **Default Orientation:** Set both Phone and Tablet to **Unlocked**.
-- **Supported Platforms:** Check ✅ **Web**, ✅ **iOS**, and ✅ **Android**.
+ไฟล์บันทึกการทำงาน:
 
-<p align="center">
-  <img src="docs/assets/imgs/media_1792852638891.png" alt="Discord Activity Settings" width="850"/>
-</p>
+- `server.log` / `server.error.log`: เว็บเซิร์ฟเวอร์
+- `bot.log` / `bot.error.log`: บอท Discord
+- `tunnel.log` / `tunnel.error.log`: Cloudflare Tunnel
+- `.processes.json`: PID ของโปรเซสที่ launcher เปิด
 
-### 3. URL Mappings (`Activities` > `URL Mappings`)
-Map Discord's proxy to your Cloudflare Tunnel hostname:
-- **Root Mapping:**
-  - **Prefix:** `/`
-  - **Target:** `stream.yourdomain.com` *(your Cloudflare Tunnel hostname without `https://`)*
-- *How it works:* Discord proxies iframe connections from `https://<app_id>.discordsays.com/` directly to your tunnel target over HTTPS.
+## เปิดผ่านโดเมนและ Cloudflare Tunnel
 
-<p align="center">
-  <img src="docs/assets/imgs/media_1792852738042.png" alt="Discord Activity URL Mappings" width="850"/>
-</p>
+1. สร้าง Tunnel และกำหนด hostname ของเว็บให้ชี้ไปที่ `http://localhost:9815` หรือพอร์ตที่ตั้งไว้
+2. ใส่ hostname เดียวกันใน `STREAM_DOMAIN` ของ `.env`
+3. ใส่ `TUNNEL_TOKEN` หากต้องการให้ Windows launcher เปิด Tunnel ด้วย
+4. เริ่มระบบใหม่ และตรวจ `tunnel.error.log` เมื่อเข้าโดเมนไม่ได้
 
-### 4. Bot Setup & Voice Permissions
-1. Navigate to **Bot** > Click **Reset Token** and copy the token.
-2. Put the token in your `.env` file:
-   ```env
-   Discord_token=your_bot_token_here
-   ```
-3. Go to **OAuth2** > **URL Generator**:
-   - **Scopes:** `bot`, `applications.commands`
-   - **Bot Permissions:** `Create Instant Invite`, `Send Messages`, `View Channels`
-4. Use the generated invite URL to add the bot to your Discord server.
+หากใช้ `npm start` โดยตรง คำสั่งนี้จะเปิดเฉพาะเว็บเซิร์ฟเวอร์ ต้องรัน Tunnel แยกต่างหาก
 
----
+ไม่จำเป็นต้องใส่โดเมนจริงไว้ใน `server.js`, `public/app.js` หรือ README ค่าจริงควรอยู่ใน `.env` บนเครื่องเซิร์ฟเวอร์
 
-## 🤖 Discord Watch Together Bot
+## การใช้งานคลังและห้องดูพร้อมกัน
 
-Once configured, run the companion Discord bot to host sessions directly within Discord Voice Channels:
+1. เปิดหน้า Library แล้วเลือกหนัง หรือเข้าโฟลเดอร์เพื่อเลือกตอน
+2. หน้า Upload ใช้โฟลเดอร์ที่กำลังเปิดอยู่เป็นปลายทาง และสามารถเลือกปลายทางอื่นจากรายการได้
+3. หลังอัปโหลด เซิร์ฟเวอร์จะประกอบไฟล์และพยายามสร้างภาพปกก่อนเริ่มเล่น จึงอาจมีช่วงรอประมวลผล
+4. ใช้ปุ่มสามจุดบนการ์ดเพื่อย้ายหรือลบข้อมูล การลบโฟลเดอร์จะลบเนื้อหาภายในด้วย
+5. เปิด Auto-Next เมื่อต้องการเล่นตอนถัดไปในโฟลเดอร์เดียวกัน
 
-1. Start the bot:
-   ```bash
-   npm run bot
-   ```
-2. Join any Discord Voice Channel.
-3. Type:
-   ```text
-   /watch
-   ```
-4. The bot will create an interactive button inviting channel members to launch and join the synchronized streaming session.
+ตัวอย่าง URL สำหรับห้องแยก:
 
----
+```text
+http://localhost:9815/?channel_id=movie-night
+```
 
-## 🎬 Generating Thumbnails
+ทุกหน้าที่ใช้ `channel_id` เดียวกันจะใช้สถานะการเล่นร่วมกัน หากไม่ระบุ จะใช้ห้อง `default-voice-room` ชื่อห้องไม่ใช่รหัสลับหรือสิทธิ์เข้าห้อง
 
-To process and extract thumbnail cards for your entire existing video library in one batch:
+การเล่นวิดีโอขึ้นกับ container และ codec ที่เบราว์เซอร์รองรับ การอัปโหลดไฟล์สำเร็จไม่ได้รับประกันว่าเบราว์เซอร์ทุกตัวจะเล่นไฟล์นั้นได้
+
+## คีย์ลัด (Keyboard shortcuts)
+
+เลือกหนังให้เครื่องเล่นมีแหล่งวิดีโอก่อนใช้คีย์ลัดควบคุมการเล่น:
+
+- **Space / K:** เล่นหรือหยุดชั่วคราว
+- **← / J:** ย้อนกลับ 10 วินาที
+- **→ / L:** เดินหน้า 10 วินาที
+- **↑ / ↓:** เพิ่มหรือลดเสียงครั้งละ 5% และยกเลิกการปิดเสียง
+- **M:** ปิดหรือเปิดเสียง
+- **F:** เข้า/ออกโหมดเต็มจอ
+- **Esc:** ปิดกล่องโต้ตอบ หรือกลับ Library จาก Cinema/Upload เมื่อไม่ได้โฟกัสช่องกรอกหรือรายการเลือก ขณะเต็มจอให้เบราว์เซอร์จัดการ Esc เพื่อออกเต็มจอก่อน
+- **?:** แสดงรายการคีย์ลัด หรือกดปุ่ม `?` บนแถบเมนู
+
+ปุ่มตัวอักษรอ้างอิงตำแหน่งแป้นภาษาอังกฤษ คีย์ลัดเครื่องเล่นไม่แทรกการพิมพ์ในช่องค้นหา ฟอร์ม รายการเลือก หรือปุ่มที่กำลังโฟกัส ไม่ทำงานในหน้า Upload หรือระหว่างเปิดกล่องโต้ตอบ และไม่แทนที่คีย์ลัด Ctrl/Alt/Command ของเบราว์เซอร์
+
+การเล่น หยุด และเลื่อนเวลายังคงซิงก์กับห้องตามปุ่มควบคุมเดิม ส่วนเสียงและโหมดเต็มจอมีผลเฉพาะหน้าที่ใช้งาน
+
+## Discord Activity และบอท
+
+ต้องตั้งค่า Activity และ URL Mapping ของ Discord Application ให้เชื่อมต่อ HTTPS hostname ของเซิร์ฟเวอร์ก่อน บอทสร้างคำเชิญไปยัง Activity ของ Application เดียวกับบอท
+
+- เพิ่มบอทเข้าเซิร์ฟเวอร์ พร้อมสิทธิ์ดูช่อง ส่งข้อความ และสร้างคำเชิญ
+- ตั้ง `Discord_token` หรือ `DISCORD_TOKEN` ใน `.env`
+- ลงทะเบียน slash command ชื่อ `/watch` ให้ Application แยกต่างหาก: `bot.js` มีตัวรับคำสั่ง แต่ยังไม่มีสคริปต์ลงทะเบียนคำสั่งอัตโนมัติ
+- รัน `npm run bot` เข้าห้องเสียง แล้วใช้ `/watch` เมื่อคำสั่งพร้อมใช้งาน
+- ผลลัพธ์เป็นข้อความพร้อมลิงก์คำเชิญ ไม่ใช่การอัปโหลดหนังไปยัง Discord
+
+ดูภาพประกอบใน [คู่มือภาษาไทย](docs/README_TH.md) หรือ [คู่มือภาษาญี่ปุ่น](docs/README_JA.md) การตั้งค่าบน Discord และการทำงานร่วมกับ proxy ต้องตรวจในสภาพแวดล้อมที่ใช้งานจริง
+
+## ภาพปกวิดีโอ
+
+หนังใหม่สร้างภาพปกโดยอัตโนมัติหลังอัปโหลด ส่วนภาพปกของหนังที่มีอยู่แล้วสร้างเป็นชุดได้ด้วย:
 
 ```bash
 npm run thumbnails
 ```
 
-*This scans the library non-destructively, generates `.jpg` covers in `public/thumbnails/`, and skips videos that already have valid thumbnails.*
+คำสั่งนี้อ่านคลังเริ่มต้นใน `public/uploads` และข้ามไฟล์ที่มีภาพปกอยู่แล้ว หากต้องการสร้างทับภาพปกเดิม:
 
----
+```bash
+npm run thumbnails -- --refresh
+```
 
-## 🧪 Testing
+ภาพจะถูกบันทึกใน `public/thumbnails` และระยะเวลาจะอยู่ใน `metadata.json` โดยไม่แก้ไฟล์วิดีโอ เมื่อย้ายหนังผ่านหน้าเว็บ ภาพปกและข้อมูลระยะเวลาจะถูกคัดลอกไปยังพาธใหม่ด้วย
 
-TachyonStream includes an automated regression test suite covering security gates, upload slice integrity, and session handling:
+## ป้องกันโดเมนและข้อมูลลับติด GitHub
+
+`.gitignore` กัน `.env`, log, ไฟล์สำรอง, ข้อมูลโปรเซส และไฟล์ในคลังวิดีโอ/ภาพปกไว้ ส่วน `.env.example` เป็นไฟล์ตัวอย่างที่ติด Git ได้ จึงต้องใช้ค่าว่างหรือ placeholder เท่านั้น
+
+ตรวจไฟล์ก่อน commit:
+
+```bash
+git status --short
+git check-ignore .env
+git ls-files .env
+```
+
+คำสั่งสุดท้ายควรไม่มีผลลัพธ์ ตรวจ diff และภาพหน้าจอที่แนบในเอกสารด้วย โดยเฉพาะโดเมน token และที่อยู่เซิร์ฟเวอร์
+
+การเพิ่ม `.gitignore` ไม่ได้ลบข้อมูลที่เคย commit ไปแล้ว หากเคยเผยแพร่ข้อมูลลับ ต้องจัดการประวัติ Git และเปลี่ยน token ที่เกี่ยวข้องแยกต่างหาก
+
+## ทดสอบ
 
 ```bash
 npm test
 ```
 
-Tests run in isolated temporary workspaces without modifying your live video repository.
+ชุดทดสอบใช้เว็บเซิร์ฟเวอร์และข้อมูลจำลองในโฟลเดอร์ชั่วคราว ครอบคลุมคำขอแบบไม่ใช้รหัส การตรวจ session และต้นทาง การบล็อก static URL การประกอบชังก์ การสตรีม ภาพปกของหนังใหม่/โฟลเดอร์ซ้อน การย้ายไฟล์ และการแสดงชื่อโฟลเดอร์ ต้องมี FFmpeg/FFprobe เพื่อสร้างวิดีโอจำลอง
 
----
+การทดสอบเหล่านี้ไม่ยืนยันการเล่นหลายคนผ่านโดเมนจริง Cloudflare Tunnel หรือ Discord Activity ทั้งระบบ
 
-## 📂 Project Structure
+## แก้ปัญหาเบื้องต้น
+
+- **วิดีโอขึ้น `403` บนโดเมนจริง:** ตรวจ `STREAM_DOMAIN` และรีสตาร์ตเซิร์ฟเวอร์ จากนั้นรีเฟรชหน้าเว็บเพื่อรับ session ใหม่
+- **อัปโหลดขึ้น `401`:** รอเครื่องเล่นเชื่อมต่อให้เป็น Synced แล้วลองใหม่ ไม่ต้องกรอกรหัส Admin
+- **คำขอขึ้น `403` ขณะจัดการคลัง:** ตรวจว่าหน้าเว็บและ API ใช้ต้นทางเดียวกัน รวมถึง Host ที่ reverse proxy ส่งต่อมา
+- **ไม่มีภาพปก:** ตรวจ FFmpeg/FFprobe ใน `PATH` หรือพาธที่ตั้งไว้ และอ่านข้อความใน `server.error.log`
+- **ไม่มีคำสั่ง `/watch`:** ตรวจการลงทะเบียน slash command ของ Application และการเพิ่มบอทเข้าเซิร์ฟเวอร์
+- **เห็นชื่อเป็น `%20`:** โหลดหน้าใหม่ด้วย `Ctrl+F5` เพื่อรับ JavaScript ล่าสุด
+- **ข้อความ `XHR finished loading` / `Fetch finished loading`:** เป็น log การรับส่งข้อมูล ไม่ใช่ข้อผิดพลาดด้วยตัวเอง ให้ดู HTTP status และข้อความตอบกลับประกอบ
+
+## โครงสร้างหลัก
 
 ```text
-TachyonStream/
-├── docs/                   # Multilingual documentation (Japanese, Thai)
-│   ├── README_JA.md
-│   └── README_TH.md
-├── lib/
-│   └── thumbnails.js       # FFmpeg thumbnail generation helper
-├── public/                 # Frontend assets (HTML, CSS, Player JS, Treeselect)
-│   ├── app.js              # Client application & room synchronization logic
-│   ├── thumbnails/         # Cached video cover images (.jpg)
-│   └── uploads/            # Video library storage
-├── scripts/
-│   └── generate-thumbnails.mjs # Library batch thumbnail scanner
-├── tests/
-│   └── regression.mjs      # Security & regression test suite
-├── bot.js                  # Discord Watch Together Bot
-├── launch.ps1              # Process supervisor script
-├── server.js               # Express & Socket.IO core backend
-├── start.bat               # Windows background launcher
-└── stop.bat                # Windows background process terminator
+server.js                      เว็บเซิร์ฟเวอร์ API และ Socket.IO
+bot.js                         บอทสร้างคำเชิญ Discord Activity
+public/app.js                  เครื่องเล่นและหน้าจัดการคลัง
+public/style.css               รูปแบบหน้าเว็บ
+public/uploads/                คลังวิดีโอ
+public/temp_chunks/            ชังก์ระหว่างอัปโหลด
+public/thumbnails/             ภาพปกและข้อมูลระยะเวลา
+lib/thumbnails.js              ตัวสร้างภาพปกด้วย FFmpeg
+scripts/generate-thumbnails.mjs คำสั่งสร้างภาพปกทั้งคลัง
+tests/regression.mjs           ชุดทดสอบ regression
+launch.ps1 / start.bat          เริ่มระบบบน Windows
+stop.ps1 / stop.bat             หยุดระบบบน Windows
 ```
 
----
+## สัญญาอนุญาต
 
-## 📄 License
+[MIT License](LICENSE)
 
-This project is licensed under the [MIT License](LICENSE).
+## การใช้งานเมนูการ์ด
+
+ปุ่มสามจุดอยู่มุมขวาล่างของการ์ดหนังและโฟลเดอร์ เปิดได้ด้วยการคลิกหรือ Tab แล้ว Enter เมนูรองรับ Tab เพื่อเลือกคำสั่ง และ Esc เพื่อปิดพร้อมคืนโฟกัสที่ปุ่มเดิม การพรีวิวไม่ขวางปุ่ม และหน้าที่ซ่อนอยู่ไม่รับคลิกหรือโฟกัส แถบเมนูและช่องค้นหาจัดเรียงใหม่บนหน้าจอเล็ก
+
+ไอคอนในหน้าเว็บใช้ SVG แทนอีโมจิ รวมถึง Auto-Next อัปโหลด โฟลเดอร์ และสถานะคลังว่าง รายการเลือกแบบ native แสดงชื่อเป็นข้อความตามข้อจำกัดของเบราว์เซอร์

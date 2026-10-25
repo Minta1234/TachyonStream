@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="vendor/treeselectjs/treeselectjs.css">
-  <link rel="stylesheet" href="style.css?v=7.1.6">
+  <link rel="stylesheet" href="style.css?v=7.1.9">
 </head>
 
 <body>
@@ -19,7 +19,7 @@
     <header class="app-navbar">
       <div class="nav-left">
         <div class="brand-logo" id="brand-logo" title="TachyonStream Home">
-          <span class="logo-mark">●</span>
+          <svg class="logo-mark" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="currentColor"/></svg>
           <span class="logo-text">Tachyon<span class="logo-highlight">Stream</span></span>
         </div>
 
@@ -40,8 +40,8 @@
         <!-- Minimal Search Bar -->
         <div class="search-box">
           <svg class="search-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="library-search" placeholder="Search title or folder..." autocomplete="off" />
-          <button id="search-clear-btn" class="search-clear-btn" title="Clear search" style="display: none;">✕</button>
+          <input type="text" id="library-search" aria-label="Search title or folder" placeholder="Search title or folder..." autocomplete="off" />
+          <button id="search-clear-btn" class="search-clear-btn" title="Clear search" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
         </div>
       </div>
 
@@ -63,6 +63,8 @@
           <span id="sync-status">Synced</span>
         </button>
 
+        <button id="btn-shortcuts" class="nav-icon-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" aria-keyshortcuts="Shift+/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 7a3 3 0 0 1 6 0c0 3-3 3-3 6"/><circle cx="12" cy="18" r="1" fill="currentColor"/></svg></button>
+
         <button id="btn-fullscreen-toggle" class="nav-icon-btn" title="Toggle Fullscreen">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
         </button>
@@ -76,7 +78,7 @@
 
     <!-- Floating Toast Notification -->
     <div id="app-toast" class="app-toast">
-      <span id="toast-text">Now Playing</span>
+      <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span id="toast-text">Now Playing</span>
     </div>
 
     <!-- Main Viewport: Browse View / Cinema View / Upload Modal -->
@@ -212,7 +214,7 @@
                 <div class="yt-progress-played" id="yt-progress-played"></div>
                 <div class="yt-progress-handle" id="yt-progress-handle"></div>
               </div>
-              <input type="range" id="cinema-scrubber" min="0" max="100" value="0" step="0.1" class="cinema-scrubber-hidden" />
+              <input type="range" id="cinema-scrubber" aria-label="Playback position" min="0" max="100" value="0" step="0.1" class="cinema-scrubber-hidden" />
             </div>
 
             <!-- YouTube Transport Controls Bar -->
@@ -235,7 +237,7 @@
                   <button id="btn-cinema-mute" class="transport-btn icon-only" title="Mute/Unmute">
                     <span id="volume-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></span>
                   </button>
-                  <input type="range" id="cinema-volume" min="0" max="1" step="0.05" value="1" class="volume-slider" />
+                  <input type="range" id="cinema-volume" aria-label="Volume" min="0" max="1" step="0.05" value="1" class="volume-slider" />
                 </div>
 
                 <!-- YouTube Time Readout: 14:09 / 23:48 -->
@@ -263,7 +265,7 @@
               <div class="drawer-header-title">
                 <h3 id="drawer-folder-title">Folder Episodes</h3>
               </div>
-              <button id="btn-close-episodes-drawer" class="drawer-close-btn" title="Close episodes drawer">✕</button>
+              <button id="btn-close-episodes-drawer" class="drawer-close-btn" title="Close episodes drawer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
             </div>
             <div class="drawer-episodes-list" id="drawer-episodes-list">
               <!-- Dynamically populated with episodes -->
@@ -278,13 +280,13 @@
           <div class="upload-card-header">
             <div class="upload-header-text">
               <h2>Upload Video to TachyonStream</h2>
-              <p>Supports MP4, WebM, MKV, MOV. High-speed chunked upload with resumable assembling.</p>
+              <p>Supports MP4, WebM, MKV, MOV. Chunked uploads are assembled automatically. Keep this page open until completion.</p>
             </div>
-            <button class="upload-close-btn" id="btn-close-upload">✕</button>
+            <button class="upload-close-btn" id="btn-close-upload" aria-label="Close upload"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
           </div>
 
           <div class="upload-dropzone" id="upload-dropzone">
-            <div class="dropzone-icon">🎬</div>
+            <div class="dropzone-icon"><svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4m-4 8h4m10-8h4m-4 8h4"/></svg></div>
             <p class="dropzone-main-text">Drag & drop movie files here, or <span class="browse-link">browse</span></p>
             <p class="dropzone-sub-text">Only video formats (MP4, MKV, WebM, MOV, AVI) are supported. Non-movie files will be rejected.</p>
             <input type="file" id="file-input" accept="video/*,.mp4,.mkv,.webm,.mov,.avi,.flv,.wmv,.m4v" />
@@ -301,7 +303,7 @@
 
               <!-- Native select preserved for compatibility (hidden visually) -->
               <select id="upload-folder-select" class="apple-select visually-hidden" title="Target Folder">
-                <option value="">📁 Root (No Folder / Standalone Movie)</option>
+                <option value="">Root (No Folder / Standalone Movie)</option>
               </select>
 
               <!-- Treeselect JS Hierarchical Folder Select Container -->
@@ -309,7 +311,7 @@
             </div>
             <div class="form-group-btn">
               <button id="upload-btn" class="apple-btn apple-btn-primary">
-                <span>⚡</span> Upload & Stream Immediately
+                <span><svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 16V3m-5 5 5-5 5 5M3 16v5h18v-5"/></svg></span> Upload & Stream Immediately
               </button>
             </div>
           </div>
@@ -340,11 +342,11 @@
     </div>
 
     <!-- Universal In-App Modal Dialog -->
-    <div id="modal-backdrop" class="modal-backdrop" style="display: none;">
+    <div id="modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-message" style="display: none;">
       <div class="modal-dialog">
         <div class="modal-header">
           <h3 id="modal-title" class="modal-title">Modal Title</h3>
-          <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+          <button id="modal-close-btn" aria-label="Close dialog" class="modal-close-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
         </div>
         <div class="modal-body" id="modal-body">
           <p id="modal-message" class="modal-message"></p>
@@ -360,7 +362,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="vendor/treeselectjs/treeselectjs.umd.js?v=1.0.2-fixed"></script>
-  <script src="app.js?v=7.1.6"></script>
+  <script src="app.js?v=7.1.9"></script>
 </body>
 
 </html>

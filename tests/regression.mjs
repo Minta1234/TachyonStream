@@ -8,7 +8,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import WebSocket from 'ws';
 const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'tachyon-test-'));
-const child = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: '0', DATA_DIR: temp }, stdio: ['ignore','pipe','pipe'] });
+const child = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: '0', DATA_DIR: temp, STREAM_DOMAIN: 'stream.test' }, stdio: ['ignore','pipe','pipe'] });
 const activeSockets = [];
 let diagnostics = '';
 child.stderr.on('data', data => diagnostics += data);
@@ -60,6 +60,13 @@ try {
   ws.send('42["join-room",{"roomId":"test","user":"test"}]');
   const response = await fetch(base+movie.url+'?sid='+sid,{headers:fakeHeaders});
   assert.equal(response.status,206);assert.equal((await response.arrayBuffer()).byteLength,16);
+  const domainStream = await fetch(base+movie.url+'?sid='+sid,{headers:{...fakeHeaders,referer:'https://stream.test/'}});
+  assert.equal(domainStream.status,206);assert.equal((await domainStream.arrayBuffer()).byteLength,16);
+  assert.equal((await fetch(base+movie.url+'?sid='+sid,{headers:{...fakeHeaders,referer:'https://untrusted.invalid/'}})).status,403);
+  for(const blocked of ['/server.js','/.env','/server.log','/package.json']) {
+    assert.equal((await fetch(base+blocked)).status,404);
+  }
+
   assert.equal((await fetch(base+movie.url+'?sid='+sid,{headers:{...fakeHeaders,Range:'bytes=0-nope'}})).status,416);
   const thumbnail = await fetch(base+'/api/save-thumbnail',{method:'POST',headers:{'Content-Type':'application/json',Origin:base,'X-Playback-Session':sid},body:JSON.stringify({videoPath:movie.filename,dataUrl:'data:image/jpeg;base64,/9j/2Q==',duration:1})});
   assert.equal(thumbnail.status,200);
@@ -97,6 +104,62 @@ try {
   assert.equal((await fetch(base+movedSeries.videos[0].thumbnailUrl)).status,200);
   assert.deepEqual(await fs.readFile('public/vendor/treeselectjs/treeselectjs.umd.js'),await fs.readFile('node_modules/treeselectjs/dist/treeselectjs.umd.js'));
   const app = await fs.readFile('public/app.js','utf8');
+  const iconContext = {};
+  vm.runInNewContext(app.slice(0, app.indexOf('// ==========================================================================')), iconContext);
+  for (const name of ['folder', 'repeat', 'film', 'upload']) {
+    assert.match(iconContext.uiIcon(name), /<svg/);
+    assert.match(iconContext.uiIcon(name), /aria-hidden="true"/);
+    assert.ok(!iconContext.uiIcon(name).includes('undefined'));
+  }
+  assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(app));
+  const shortcutCode = app.slice(app.indexOf('function showShortcutHelp'), app.indexOf('// Hero Billboard Updating'));
+  const calls = [];
+  let uploadActive = false;
+  let cinemaActive = false;
+  const shortcuts = {
+    activeModalResolve: null, currentPlayingSource: '/api/stream/test.mp4',
+    document: { fullscreenElement: null, addEventListener() {}, getElementById: () => ({addEventListener() {}}) },
+    viewUpload: {classList: {contains: () => uploadActive}},
+    viewCinema: {classList: {contains: () => cinemaActive}},
+    customVideo: {volume: 0.98, muted: true},
+    togglePlayPause: () => calls.push('play'), seekRelative: n => calls.push(n),
+    toggleAudioMute: () => calls.push('mute'), toggleAppFullscreen: () => calls.push('fullscreen'),
+    showAlertModal: data => calls.push(data.title), closeModal: () => calls.push('close'),
+    closeAllPopovers() {}, switchView: view => calls.push(view), resetIdleTimer() {}, showToast() {}
+  };
+  vm.createContext(shortcuts); vm.runInContext(shortcutCode, shortcuts);
+  const key = (code, extra = {}) => {
+    const event = {code, key: '', target: {closest: () => null}, preventDefault() {this.prevented = true;}, ...extra};
+    shortcuts.handlePlayerShortcut(event); return event;
+  };
+  key('KeyK'); key('ArrowLeft'); key('KeyL');
+  assert.deepEqual(calls.splice(0), ['play', -10, 10]);
+  key('ArrowUp'); assert.equal(shortcuts.customVideo.volume, 1); assert.equal(shortcuts.customVideo.muted, false);
+  shortcuts.customVideo.volume = 0.02; key('ArrowDown'); assert.equal(shortcuts.customVideo.volume, 0);
+  for (const extra of [{ctrlKey:true}, {isComposing:true}, {defaultPrevented:true}, {repeat:true}, {target:{closest:()=>({})}}]) {
+    key('KeyK', extra);
+  }
+  uploadActive = true; key('KeyK'); uploadActive = false;
+  shortcuts.activeModalResolve = () => {}; key('KeyK'); key('Escape'); shortcuts.activeModalResolve = null;
+  assert.deepEqual(calls.splice(0), ['close']);
+  shortcuts.currentPlayingSource = ''; key('KeyK'); key('KeyF'); key('Slash', {key:'?'});
+  assert.deepEqual(calls.splice(0), ['fullscreen', 'Keyboard shortcuts']);
+  cinemaActive = true; key('Escape'); assert.deepEqual(calls.splice(0), ['browse']);
+  shortcuts.document.fullscreenElement = {}; assert.equal(key('Escape').prevented, undefined);
+  const views = ['browse', 'cinema', 'upload'].map(() => {
+    const classes = new Set();
+    return {classList: {add: value => classes.add(value), remove: value => classes.delete(value), contains: value => classes.has(value)}};
+  });
+  const viewContext = {viewBrowse:views[0], viewCinema:views[1], viewUpload:views[2],
+    navBtnBrowse:views[0], navBtnCinema:views[1], navBtnUpload:views[2],
+    folderTreeselectInstance:null, heroVideoDock:null, playerContainer:null, cinemaVideoHolder:null,
+    currentFolderView:null, resetIdleTimer(){}, closeAllPopovers(){}};
+  vm.createContext(viewContext);
+  vm.runInContext(app.slice(app.indexOf('function switchView'), app.indexOf('navBtnBrowse.addEventListener')), viewContext);
+  for (const [index, name] of ['browse', 'cinema', 'upload', 'browse'].entries()) {
+    viewContext.switchView(name);
+    views.forEach((view, i) => assert.equal(view.inert, i !== index % 3));
+  }
   const billboardCode = app.slice(app.indexOf('function updateHeroBillboard'),app.indexOf('// Catalogue & Netflix/Apple TV Folder Navigation'));
   const labels = new Map();
   const billboardContext = { customVideo:{src:'/api/stream/movie.mp4'},roomId:'test',pathBasename:()=> 'movie.mp4',formatMediaTitle:()=> 'Movie',document:{getElementById:id=>{if(!labels.has(id))labels.set(id,{style:{}});return labels.get(id);}} };
@@ -117,7 +180,7 @@ try {
   vm.runInNewContext(fn+';applyThumbnailToContainer(container,"/poster.jpg",null,null,0);',{container:detached,document:{createElement:()=>({classList:{add(){}},complete:false})},formatTime:()=>''});
   assert.equal(image.src,'/poster.jpg');
   ws.close();
-  console.log('PASS: password-free session requests, blocked cross-site HTTP/WebSocket, blocked encoded static upload URLs, malformed socket packets, literal %, upload validation/assembly/cleanup, session enforcement, streaming body/ranges, thumbnail persistence, detached-card thumbnail regression; real new upload, nested folder covers, preserved thumbnail after move.');
+  console.log('PASS: keyboard shortcut safeguards, inactive view isolation, password-free session requests, blocked cross-site HTTP/WebSocket, blocked encoded static upload URLs, malformed socket packets, literal %, upload validation/assembly/cleanup, session enforcement, streaming body/ranges, thumbnail persistence, detached-card thumbnail regression; real new upload, nested folder covers, preserved thumbnail after move.');
 } finally {
   for (const socket of activeSockets) socket.terminate();
   child.kill();

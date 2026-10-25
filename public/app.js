@@ -1,3 +1,8 @@
+function uiIcon(name) {
+  const paths = {"folder": "<path d=\"M3 7V5h6l2 2h10v13H3z\"/>", "repeat": "<path d=\"m17 2 4 4-4 4M3 11V6h18M7 22l-4-4 4-4m14-1v5H3\"/>", "film": "<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M7 3v18M17 3v18M3 8h4m-4 8h4m10-8h4m-4 8h4\"/>", "upload": "<path d=\"M12 16V3m-5 5 5-5 5 5M3 16v5h18v-5\"/>"};
+  return `<svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+}
+
 // ==========================================================================
 // TachyonStream - Apple TV & Netflix Frontend Application
 const socket = io();
@@ -317,7 +322,7 @@ socket.on("change-source", ({ source, folder }) => {
   const rawName = decodeURIComponent(pathBasename(source));
   const cleanName = formatMediaTitle(rawName);
   updateStatus(`Playing: ${cleanName}`);
-  showToast(`▶ Now Playing: ${cleanName}`);
+  showToast(`Now Playing: ${cleanName}`);
   updateHeroBillboard();
   renderCatalogue();
   renderEpisodesDrawer();
@@ -349,7 +354,7 @@ socket.on("video-play", ({ time }) => {
     updateSoundUI();
   });
   updateStatus("Synced: Playing");
-  showToast("▶ Room Playing");
+  showToast("Room Playing");
 });
 
 socket.on("video-pause", ({ time }) => {
@@ -357,14 +362,14 @@ socket.on("video-pause", ({ time }) => {
   alignPlaybackTime(time);
   customVideo.pause();
   updateStatus("Synced: Paused");
-  showToast("⏸ Room Paused");
+  showToast("Room Paused");
 });
 
 socket.on("video-seek", ({ time }) => {
   setRemoteAction(1200);
   customVideo.currentTime = time;
   updateStatus("Synced: Seeked");
-  showToast(`⏩ Seeked to ${formatTime(time)}`);
+  showToast(`Seeked to ${formatTime(time)}`);
 });
 
 socket.on("user-joined", ({ count }) => {
@@ -387,7 +392,7 @@ const btnSyncRoom = document.getElementById("btn-sync-room");
 if (btnSyncRoom) {
   btnSyncRoom.addEventListener("click", () => {
     updateStatus("Syncing...");
-    showToast("🔄 Syncing with room...");
+    showToast("Syncing with room...");
     socket.emit("request-sync");
   });
 }
@@ -401,7 +406,7 @@ function showToast(message) {
   const toast = document.getElementById("app-toast");
   const text = document.getElementById("toast-text");
   if (toast && text) {
-    text.textContent = message.replace(/[▶⏸⏩⏪🔁🔊🔇🎬🍿📁]/g, "").trim();
+    text.textContent = message;
     toast.classList.add("show");
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => {
@@ -470,7 +475,7 @@ if (unmuteAlertEl) {
     customVideo.volume = 1.0;
     showUnmuteAlert(false);
     updateSoundUI();
-    showToast("🔊 Sound Unmuted");
+    showToast("Sound Unmuted");
   });
 }
 
@@ -529,6 +534,10 @@ function switchView(viewName) {
       updateFolderSelectDropdown();
     }
   }
+  [viewBrowse, viewCinema, viewUpload].forEach(view => {
+    view.inert = !view.classList.contains("active");
+  });
+  closeAllPopovers();
 }
 
 navBtnBrowse.addEventListener("click", () => switchView("browse"));
@@ -610,7 +619,7 @@ function playVideo(videoUrl, folderPath = null, clickedCard = null) {
   }
 
   // Show Netflix/Apple TV animated toast
-  showToast(`▶ Now Playing: ${cleanTitle}`);
+  showToast(`Now Playing: ${cleanTitle}`);
 
   socket.emit("change-source", { source: videoUrl, folder: folderPath || null });
   updateHeroBillboard();
@@ -634,11 +643,11 @@ function togglePlayPause() {
       updateSoundUI();
     });
     socket.emit("video-play", { time: customVideo.currentTime });
-    showToast("▶ Playing");
+    showToast("Playing");
   } else {
     customVideo.pause();
     socket.emit("video-pause", { time: customVideo.currentTime });
-    showToast("⏸ Paused");
+    showToast("Paused");
   }
 }
 
@@ -647,7 +656,7 @@ function seekRelative(delta) {
   const newTime = Math.max(0, Math.min(customVideo.duration || Infinity, customVideo.currentTime + delta));
   customVideo.currentTime = newTime;
   socket.emit("video-seek", { time: newTime });
-  showToast(delta > 0 ? `⏩ +${delta}s` : `⏪ ${delta}s`);
+  showToast(delta > 0 ? `+${delta}s` : `${delta}s`);
 }
 
 const SVG_PLAY_BTN = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
@@ -750,7 +759,7 @@ if (ytProgressContainer) {
         const { time } = getTimeFromPointerEvent(e);
         customVideo.currentTime = time;
         socket.emit("video-seek", { time });
-        showToast(`⏩ Seeked to ${formatTime(time)}`);
+        showToast(`Seeked to ${formatTime(time)}`);
       }
     }
   });
@@ -804,28 +813,28 @@ function toggleAutoNext(folderPath = null) {
   socket.emit("set-auto-next", { enabled: newState, folder: targetFolder });
   updateAutoNextButtonsUI();
   updateStatus(`Auto Next ${newState ? "ON" : "OFF"}`);
-  showToast(newState ? "🔁 Auto-Next Enabled" : "🔁 Auto-Next Disabled");
+  showToast(newState ? "Auto-Next Enabled" : "Auto-Next Disabled");
   renderCatalogue();
 }
 
 function updateAutoNextButtonsUI() {
-  const text = autoNextEnabled ? "🔁 Auto-Next: ON" : "🔁 Auto-Next: OFF";
+  const text = autoNextEnabled ? "Auto-Next: ON" : "Auto-Next: OFF";
 
   const heroBtn = document.getElementById("btn-hero-autonext");
   if (heroBtn) {
-    heroBtn.textContent = text;
+    heroBtn.innerHTML = uiIcon("repeat") + text;
     heroBtn.classList.toggle("active", autoNextEnabled);
   }
 
   const cinemaBtn = document.getElementById("btn-cinema-autonext");
   if (cinemaBtn) {
-    cinemaBtn.textContent = text;
+    cinemaBtn.innerHTML = uiIcon("repeat") + text;
     cinemaBtn.classList.toggle("active", autoNextEnabled);
   }
 
   const folderBarBtn = document.getElementById("btn-folder-autonext-toggle");
   if (folderBarBtn) {
-    folderBarBtn.textContent = text;
+    folderBarBtn.innerHTML = uiIcon("repeat") + text;
     folderBarBtn.classList.toggle("accent-pill", autoNextEnabled);
   }
 }
@@ -859,6 +868,68 @@ if (cinemaTheater) {
   cinemaTheater.addEventListener("mousemove", resetIdleTimer);
   cinemaTheater.addEventListener("click", resetIdleTimer);
 }
+
+// ==========================================================================
+// Keyboard shortcuts
+function showShortcutHelp() {
+  showAlertModal({
+    title: "Keyboard shortcuts",
+    message: [
+      "Space / K — Play / Pause",
+      "Left / J — Back 10 seconds",
+      "Right / L — Forward 10 seconds",
+      "Up / Down — Volume ±5%",
+      "M — Mute / Unmute",
+      "F — Toggle fullscreen",
+      "Esc — Back to Library / close dialog",
+      "? — Show keyboard shortcuts",
+      "Player shortcuts are paused while typing or using Upload."
+    ].join("\n")
+  });
+}
+
+function handlePlayerShortcut(event) {
+  if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+  if (activeModalResolve) {
+    if (event.code === "Escape") { event.preventDefault(); closeModal(null); }
+    return;
+  }
+  // Preserve native typing and keyboard interaction with focused controls.
+  if (event.target?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox'], [role='combobox'], .treeselect, .treeselect-list, .card-popover-menu")) return;
+  if (event.code === "Escape") {
+    if (document.fullscreenElement) return;
+    closeAllPopovers();
+    if (viewCinema.classList.contains("active") || viewUpload.classList.contains("active")) {
+      event.preventDefault();
+      switchView("browse");
+    }
+    return;
+  }
+  if (event.target?.closest?.("button, a")) return;
+  if (viewUpload.classList.contains("active")) return;
+  const code = event.key === "?" ? "Help" : event.code;
+  if (!["Space", "KeyK", "KeyJ", "KeyL", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "KeyM", "KeyF", "Help"].includes(code)) return;
+  if (!currentPlayingSource && !["KeyF", "Help"].includes(code)) return;
+  event.preventDefault();
+  if (event.repeat && ["Space", "KeyK", "KeyM", "KeyF", "Help"].includes(code)) return;
+  switch (code) {
+    case "Space": case "KeyK": togglePlayPause(); break;
+    case "ArrowLeft": case "KeyJ": seekRelative(-10); break;
+    case "ArrowRight": case "KeyL": seekRelative(10); break;
+    case "ArrowUp": case "ArrowDown":
+      customVideo.volume = Math.max(0, Math.min(1, customVideo.volume + (code === "ArrowUp" ? 0.05 : -0.05)));
+      customVideo.muted = false;
+      showToast(`Volume: ${Math.round(customVideo.volume * 100)}%`);
+      break;
+    case "KeyM": toggleAudioMute(); break;
+    case "KeyF": toggleAppFullscreen(); break;
+    case "Help": showShortcutHelp(); break;
+  }
+  resetIdleTimer();
+}
+
+document.addEventListener("keydown", handlePlayerShortcut);
+document.getElementById("btn-shortcuts").addEventListener("click", showShortcutHelp);
 
 // ==========================================================================
 // Hero Billboard Updating
@@ -949,7 +1020,7 @@ function renderCatalogue() {
     if (visibleFolders.length === 0 && visibleVideos.length === 0) {
       container.innerHTML = `
         <div class="empty-catalogue-box">
-          <span class="empty-icon">🍿</span>
+          <span class="empty-icon">${uiIcon("folder")}</span>
           <h3 class="empty-title">${searchQuery ? `No matches found for "${escapeHtml(searchQuery)}"` : "Your library is empty"}</h3>
           <p class="empty-desc">${searchQuery ? "Try searching for a different title or keyword." : "Upload your favorite anime, movies, or series above to get started!"}</p>
         </div>
@@ -1020,7 +1091,7 @@ function renderCatalogue() {
   if (!currentFolder) {
     container.innerHTML = `
       <div class="empty-catalogue-box">
-        <span class="empty-icon">📁</span>
+        <span class="empty-icon">${uiIcon("folder")}</span>
         <h3 class="empty-title">Folder not found</h3>
         <p class="empty-desc">This folder may have been moved or deleted.</p>
         <button class="folder-action-pill accent-pill" onclick="currentFolderView=null;renderCatalogue();">Return to Library</button>
@@ -1035,7 +1106,7 @@ function renderCatalogue() {
   if (subfolders.length === 0 && episodes.length === 0) {
     container.innerHTML = `
       <div class="empty-catalogue-box">
-        <span class="empty-icon">📂</span>
+        <span class="empty-icon">${uiIcon("folder")}</span>
         <h3 class="empty-title">This folder is empty</h3>
         <p class="empty-desc">Create a subfolder or upload/move videos into "${escapeHtml(currentFolder.name)}".</p>
       </div>
@@ -1100,7 +1171,10 @@ function renderCatalogue() {
 
 // Helper: Close any open popover menus
 function closeAllPopovers() {
-  document.querySelectorAll(".card-popover-menu").forEach(p => p.remove());
+  document.querySelectorAll(".card-popover-menu").forEach(menu => {
+    menu._trigger?.setAttribute("aria-expanded", "false");
+    menu.remove();
+  });
 }
 document.addEventListener("click", closeAllPopovers);
 
@@ -1135,8 +1209,22 @@ function openVideoContextMenu(e, video) {
     await deleteVideoPrompt(video);
   });
 
+  menu._trigger = e.currentTarget;
+  menu._trigger.setAttribute("aria-expanded", "true");
+  menu.setAttribute("role", "group");
+  menu.setAttribute("aria-label", "Card options");
+  menu.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      const trigger = menu._trigger;
+      closeAllPopovers();
+      trigger.focus();
+    }
+  });
   document.body.appendChild(menu);
   menu.style.top = `${Math.max(8, Math.min(rect.top - menu.offsetHeight - 6, window.innerHeight - menu.offsetHeight - 8))}px`;
+  menu.querySelector("button").focus();
 }
 
 function openFolderContextMenu(e, folder) {
@@ -1180,8 +1268,22 @@ function openFolderContextMenu(e, folder) {
     await deleteFolderPrompt(folder.path, folder.name);
   });
 
+  menu._trigger = e.currentTarget;
+  menu._trigger.setAttribute("aria-expanded", "true");
+  menu.setAttribute("role", "group");
+  menu.setAttribute("aria-label", "Card options");
+  menu.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      const trigger = menu._trigger;
+      closeAllPopovers();
+      trigger.focus();
+    }
+  });
   document.body.appendChild(menu);
   menu.style.top = `${Math.max(8, Math.min(rect.top - menu.offsetHeight - 6, window.innerHeight - menu.offsetHeight - 8))}px`;
+  menu.querySelector("button").focus();
 }
 
 function getFirstVideoInFolder(folder) {
@@ -1510,7 +1612,7 @@ function createFolderPosterCard(folder) {
     </div>
     <div class="folder-poster-gradient"></div>
     <div class="folder-card-top-badge">${countLabel}</div>
-    <button class="card-more-btn" title="Folder options" aria-label="More options">
+    <button class="card-more-btn" title="Folder options" aria-label="More options" aria-expanded="false">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
     </button>
     <div class="folder-card-content">
@@ -1622,7 +1724,7 @@ function createVideoCard(video, folderPath) {
       ` : ""}
     </div>
     <div class="video-card-info">
-      <button class="card-more-btn" title="Options" aria-label="More options">
+      <button class="card-more-btn" title="Options" aria-label="More options" aria-expanded="false">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
       </button>
 
@@ -1913,7 +2015,7 @@ async function deleteVideoPrompt(video) {
     const data = await res.json();
     if (data.success) {
       loadLibrary();
-      showToast(`🗑️ Deleted ${formatMediaTitle(video.name)}`);
+      showToast(`Deleted ${formatMediaTitle(video.name)}`);
     } else {
       alert(data.error || "Failed to delete video");
     }
@@ -1926,10 +2028,10 @@ async function deleteVideoPrompt(video) {
 async function moveVideoPrompt(video) {
   const allList = currentLibraryData.allFoldersList || [];
   const options = [
-    { value: "", label: "📁 Root (No Folder / Standalone Movie)" }
+    { value: "", label: "Root (No Folder / Standalone Movie)" }
   ];
   allList.forEach(f => {
-    const indent = "  ".repeat(f.depth) + (f.depth > 0 ? "↳ 📁 " : "📁 ");
+    const indent = "  ".repeat(f.depth) + (f.depth > 0 ? "↳ " : "");
     const subHint = f.depth > 0 ? ` [Subfolder of ${f.path.split("/").slice(0, -1).join("/")}]` : "";
     options.push({
       value: f.path,
@@ -1959,7 +2061,7 @@ async function moveVideoPrompt(video) {
     const data = await res.json();
     if (data.success) {
       loadLibrary();
-      showToast(`📦 Moved to ${targetFolder ? targetFolder.split("/").filter(Boolean).pop() : "Root"}`);
+      showToast(`Moved to ${targetFolder ? targetFolder.split("/").filter(Boolean).pop() : "Root"}`);
     } else {
       alert(data.error || "Failed to move video");
     }
@@ -2124,14 +2226,14 @@ function buildTreeselectFolderOptions(folders) {
   function mapFolderNode(f) {
     const hasChildren = Boolean(f.subfolders && f.subfolders.length > 0);
     return {
-      name: `📁 ${f.name}` + (typeof f.totalVideos === "number" ? ` (${f.totalVideos} vids)` : ""),
+      name: `${f.name}` + (typeof f.totalVideos === "number" ? ` (${f.totalVideos} vids)` : ""),
       value: f.path,
       children: hasChildren ? f.subfolders.map(mapFolderNode) : undefined
     };
   }
 
   const rootOption = {
-    name: "📁 Root (No Folder / Standalone Movie)",
+    name: "Root (No Folder / Standalone Movie)",
     value: "__root__"
   };
 
@@ -2142,12 +2244,12 @@ function buildTreeselectFolderOptions(folders) {
 function updateFolderSelectDropdown() {
   const select = document.getElementById("upload-folder-select");
   if (select) {
-    select.innerHTML = `<option value="">📁 Root (No Folder / Standalone Movie)</option>`;
+    select.innerHTML = `<option value="">Root (No Folder / Standalone Movie)</option>`;
     if (currentLibraryData && currentLibraryData.allFoldersList) {
       currentLibraryData.allFoldersList.forEach(f => {
         const opt = document.createElement("option");
         opt.value = f.path;
-        const indent = "  ".repeat(f.depth) + (f.depth > 0 ? "↳ 📁 " : "📁 ");
+        const indent = "  ".repeat(f.depth) + (f.depth > 0 ? "↳ " : "");
         opt.textContent = `${indent}${f.name}`;
         if (f.path === currentSelectedUploadFolder) opt.selected = true;
         select.appendChild(opt);
@@ -2268,7 +2370,7 @@ function initQuickNewFolderButton() {
       });
       const data = await res.json();
       if (data.success && data.folder) {
-        showToast(`📁 Created folder: ${data.folder}`);
+        showToast(`Created folder: ${data.folder}`);
         await loadLibrary();
         currentSelectedUploadFolder = data.folder;
         updateFolderSelectDropdown();
@@ -2279,7 +2381,7 @@ function initQuickNewFolderButton() {
         });
       }
     } catch (err) {
-      showToast("⚠️ Error creating folder: " + err.message);
+      showToast("Error creating folder: " + err.message);
     }
   });
 }
@@ -2377,7 +2479,7 @@ async function checkSingleFile(file) {
       if (isMpegTs) {
         return {
           valid: false,
-          title: "⚠️ MPEG-TS Video (.ts) Rejected",
+          title: "MPEG-TS Video (.ts) Rejected",
           message: `"${file.name}" is an MPEG Transport Stream video (.ts).\n\nHTML5 web browsers cannot play raw .ts files directly without an HLS transcoder. Please convert your video to MP4, MKV, or WebM.`
         };
       }
@@ -2385,7 +2487,7 @@ async function checkSingleFile(file) {
 
     return {
       valid: false,
-      title: "🚫 TypeScript File (.ts) Rejected",
+      title: "TypeScript File (.ts) Rejected",
       message: `"${file.name}" is recognized as a TypeScript source code file (.ts).\n\nTachyonStream only accepts movie/video files. Source code cannot be uploaded.`
     };
   }
@@ -2395,7 +2497,7 @@ async function checkSingleFile(file) {
   if (!isVideoExt && !isVideoMime) {
     return {
       valid: false,
-      title: "🚫 Invalid File Format",
+      title: "Invalid File Format",
       message: `"${file.name}" is NOT a recognized movie/video file.\n\nOnly movie formats (MP4, MKV, WebM, MOV, AVI) are supported.`
     };
   }
@@ -2413,7 +2515,7 @@ async function checkSingleFile(file) {
       if (asciiCount / bytes.length > 0.90) {
         return {
           valid: false,
-          title: "🚫 Text/Code File Rejected",
+          title: "Text/Code File Rejected",
           message: `"${file.name}" appears to be plain text or source code disguised as a movie file.`
         };
       }
@@ -2432,10 +2534,10 @@ async function processFilesForUpload(fileList) {
     if (!check.valid) {
       fileInput.value = "";
       showAlertModal({
-        title: check.title || "🚫 Upload Rejected",
+        title: check.title || "Upload Rejected",
         message: check.message
       });
-      showToast("⚠️ Rejected: Not a valid movie file!");
+      showToast("Rejected: Not a valid movie file!");
       const mainText = uploadDropzone.querySelector(".dropzone-main-text");
       if (mainText) mainText.textContent = "Drag & drop movie files here, or browse";
       return false;
@@ -2493,10 +2595,10 @@ if (uploadBtn) {
       const mainText = uploadDropzone.querySelector(".dropzone-main-text");
       if (mainText) mainText.textContent = "Drag & drop movie files here, or browse";
       showAlertModal({
-        title: check.title || "🚫 Upload Rejected",
+        title: check.title || "Upload Rejected",
         message: check.message
       });
-      showToast("⚠️ Rejected: Not a valid movie file!");
+      showToast("Rejected: Not a valid movie file!");
       return;
     }
 
@@ -2594,10 +2696,10 @@ if (uploadBtn) {
       uploadStatus.textContent = "Upload failed!";
       uploadSpeed.textContent = err.message;
       showAlertModal({
-        title: "🚫 Upload Rejected",
+        title: "Upload Rejected",
         message: err.message || "Upload failed. TachyonStream only accepts valid movie files."
       });
-      showToast("⚠️ Upload Rejected");
+      showToast("Upload Rejected");
       setTimeout(() => {
         progressContainer.style.display = "none";
       }, 5000);
