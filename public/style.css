@@ -2836,14 +2836,3 @@ html, body {
   background: currentColor;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-width='2' d='M3 7V5h6l2 2h10v13H3z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
-
-.quality-control { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:.75rem; max-width:220px; }
-.quality-control select { background:#202129; color:#fff; border:1px solid #555; border-radius:8px; padding:6px; }
-#quality-status { flex-basis:100%; color:#9da1b2; font-size:.65rem; }
-@media(max-width:1200px) {
-  .app-navbar {height:auto;min-height:60px;flex-wrap:wrap;gap:8px;padding:10px 14px;}
-  .nav-left,.nav-right {flex-wrap:wrap;justify-content:center;gap:8px;}
-  .nav-center {min-width:160px;}
-}
-
-@media(max-width:650px) { .quality-control select {min-height:44px;} }

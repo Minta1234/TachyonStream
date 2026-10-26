@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { AdaptiveVideoStore } from '../lib/adaptive-video.js';
 import { parseByteRange } from '../lib/http-range.js';
 assert.deepEqual(parseByteRange('bytes=10-', 100), {start:10,end:99});
 assert.deepEqual(parseByteRange('bytes=-20', 100), {start:80,end:99});
@@ -122,69 +121,7 @@ try {
   assert.ok(movedSeries.videos[0].duration > 0);
   assert.equal((await fetch(base+movedSeries.videos[0].thumbnailUrl)).status,200);
   assert.deepEqual(await fs.readFile('public/vendor/treeselectjs/treeselectjs.umd.js'),await fs.readFile('node_modules/treeselectjs/dist/treeselectjs.umd.js'));
-  assert.equal((await request('/api/quality',{source:'/api/stream/movie.mp4'},false)).status,401);
-  assert.equal((await request('/api/quality',{source:'/api/stream/../../server.js'})).status,400);
-  assert.equal((await request('/api/quality',{source:'/api/stream/%zz.mp4'})).status,400);
-  const qualityFixture = path.join(temp,'uploads','quality.mp4');
-  await promisify(execFile)(process.env.FFMPEG_PATH || 'ffmpeg',['-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=s=854x480:r=30:d=2','-c:v','libx264','-threads','2','-pix_fmt','yuv420p','-y',qualityFixture]);
-  const failureStore=new AdaptiveVideoStore(path.join(temp,'failure-cache'));
-  const previousProbe=process.env.FFPROBE_PATH;
-  process.env.FFPROBE_PATH=path.join(temp,'missing-ffprobe');
-  try {
-    const failedJob=await failureStore.prepare(qualityFixture);
-    const failureDeadline=Date.now()+5000;
-    while(failedJob.status!=='failed' && Date.now()<failureDeadline) await new Promise(resolve=>setTimeout(resolve,20));
-    assert.equal(failedJob.status,'failed');
-    assert.match(failedJob.error,/FFmpeg\/FFprobe not found/);
-  } finally {
-    if(previousProbe===undefined)delete process.env.FFPROBE_PATH;else process.env.FFPROBE_PATH=previousProbe;
-  }
-  const retriedJob=await failureStore.prepare(qualityFixture,true);
-  const retryDeadline=Date.now()+15000;
-  while(['queued','processing'].includes(retriedJob.status) && Date.now()<retryDeadline) await new Promise(resolve=>setTimeout(resolve,50));
-  assert.equal(retriedJob.status,'ready');
-  let quality;
-  const qualityDeadline=Date.now()+60000;
-  do {
-    const prepared=await request('/api/quality',{source:'/api/stream/quality.mp4'});
-    assert.equal(prepared.status,200); quality=await prepared.json();
-    assert.notEqual(quality.status,'failed');
-    if(quality.status==='ready')break;
-    await new Promise(resolve=>setTimeout(resolve,200));
-  } while(Date.now()<qualityDeadline);
-  assert.equal(quality.status,'ready');
-  assert.deepEqual(quality.levels.map(level=>level.height),[360,480]);
-  const masterUrl=base+'/api/hls/'+quality.id+'/master.m3u8?sid='+sid;
-  assert.equal((await fetch(masterUrl)).status,403);
-  const masterResponse=await fetch(masterUrl,{headers:fakeHeaders});
-  assert.equal(masterResponse.status,200);
-  assert.equal(masterResponse.headers.get('cache-control'),'no-store');
-  const master=await masterResponse.text();
-  assert.ok(master.includes('RESOLUTION=640x360'));
-  assert.ok(master.includes('360p.m3u8?sid='+sid));
-  const media=await fetch(base+'/api/hls/'+quality.id+'/360p.m3u8?sid='+sid,{headers:fakeHeaders});
-  assert.equal(media.status,200);
-  const segment=(await media.text()).split(/\r?\n/).find(line=>line.endsWith('?sid='+sid));
-  const segmentResponse=await fetch(base+'/api/hls/'+quality.id+'/'+segment,{headers:fakeHeaders});
-  assert.equal(segmentResponse.status,206);
-  assert.equal(new Uint8Array(await segmentResponse.arrayBuffer())[0],0x47);
-  assert.equal((await fetch(base+'/api/hls/'+quality.id+'/ready.json?sid='+sid,{headers:fakeHeaders})).status,404);
-  assert.equal((await fetch(base+'/adaptive/'+quality.id+'/master.m3u8')).status,404);
-  await fs.unlink(qualityFixture);
-  assert.equal((await fetch(masterUrl,{headers:fakeHeaders})).status,404);
-  assert.equal((await fetch(base+'/hls.min.js')).status,200);
-  assert.equal((await fetch(base+'/quality-player.js')).status,200);
   const app = await fs.readFile('public/app.js','utf8');
-  const qualitySource = await fs.readFile('public/quality-player.js','utf8');
-  const qualityContext = {document:{getElementById:()=>null},window:{},Hls:{},setTimeout:fn=>fn()};
-  vm.createContext(qualityContext);vm.runInContext(qualitySource+';this.QualityPlayer=QualityPlayer',qualityContext);
-  const fakeVideo={currentTime:42,paused:false,addEventListener(_name,callback){this.restore=callback;},play:()=>Promise.resolve()};
-  const qualityPlayer=new qualityContext.QualityPlayer(fakeVideo,{addEventListener(){}},{},null,url=>url);
-  qualityPlayer.info={id:'test',levels:[{height:360},{height:480}]};
-  qualityPlayer.hls={levels:[{height:360},{height:480}],destroy(){}};
-  qualityPlayer.setLevel();assert.equal(qualityPlayer.hls.nextLevel,-1);assert.equal(qualityPlayer.hls.capLevelToPlayerSize,true);
-  qualityPlayer.mode='480';qualityPlayer.setLevel();assert.equal(qualityPlayer.hls.nextLevel,1);assert.equal(qualityPlayer.hls.capLevelToPlayerSize,false);
-  qualityPlayer.switchMedia(()=>{fakeVideo.currentTime=0;});fakeVideo.restore();assert.equal(fakeVideo.currentTime,42);
   const iconContext = {};
   vm.runInNewContext(app.slice(0, app.indexOf('// ==========================================================================')), iconContext);
   for (const name of ['folder', 'repeat', 'film', 'upload']) {
@@ -269,7 +206,7 @@ try {
   assert.equal(libraryRenders,1);
   const billboardCode = app.slice(app.indexOf('function updateHeroBillboard'),app.indexOf('// Catalogue & Netflix/Apple TV Folder Navigation'));
   const labels = new Map();
-  const billboardContext = { currentPlayingSource:'/api/stream/movie.mp4',customVideo:{src:'/api/stream/movie.mp4'},roomId:'test',pathBasename:()=> 'movie.mp4',formatMediaTitle:()=> 'Movie',document:{getElementById:id=>{if(!labels.has(id))labels.set(id,{style:{}});return labels.get(id);}} };
+  const billboardContext = { customVideo:{src:'/api/stream/movie.mp4'},roomId:'test',pathBasename:()=> 'movie.mp4',formatMediaTitle:()=> 'Movie',document:{getElementById:id=>{if(!labels.has(id))labels.set(id,{style:{}});return labels.get(id);}} };
   vm.createContext(billboardContext);vm.runInContext(billboardCode,billboardContext);
   for (const folder of ['Alya Sometimes Hides Her Feelings In Russian [Thai Dub]13Ep','ชื่อ โฟลเดอร์','100% real #1','literal%20name']) {
     billboardContext.currentPlayingFolder = 'Anime/'+folder;
@@ -287,7 +224,7 @@ try {
   vm.runInNewContext(fn+';applyThumbnailToContainer(container,"/poster.jpg",null,null,0);',{container:detached,document:{createElement:()=>({classList:{add(){}},complete:false})},formatTime:()=>''});
   assert.equal(image.src,'/poster.jpg');
   ws.close();
-  console.log('PASS: real HLS 360p/480p encode, protected playlists/segments, manual/auto quality and time preservation, continuous/suffix/HEAD streaming, preview bandwidth safeguards, coalesced library refresh, keyboard shortcut safeguards, inactive view isolation, password-free session requests, blocked cross-site HTTP/WebSocket, blocked encoded static upload URLs, malformed socket packets, literal %, upload validation/assembly/cleanup, session enforcement, streaming body/ranges, thumbnail persistence, detached-card thumbnail regression; real new upload, nested folder covers, preserved thumbnail after move.');
+  console.log('PASS: continuous/suffix/HEAD streaming, preview bandwidth safeguards, coalesced library refresh, keyboard shortcut safeguards, inactive view isolation, password-free session requests, blocked cross-site HTTP/WebSocket, blocked encoded static upload URLs, malformed socket packets, literal %, upload validation/assembly/cleanup, session enforcement, streaming body/ranges, thumbnail persistence, detached-card thumbnail regression; real new upload, nested folder covers, preserved thumbnail after move.');
 } finally {
   for (const socket of activeSockets) socket.terminate();
   child.kill();

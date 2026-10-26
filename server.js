@@ -1,5 +1,4 @@
 import express from "express";
-import { AdaptiveVideoStore } from "./lib/adaptive-video.js";
 import { parseByteRange } from "./lib/http-range.js";
 import http from "http";
 import { Server } from "socket.io";
@@ -756,41 +755,6 @@ function validateVideoAccess(req) {
   return { allowed: true };
 }
 
-const adaptiveVideos = new AdaptiveVideoStore(path.join(dataDir, "adaptive"));
-app.post("/api/quality", async (req, res) => {
-  try {
-    const url = req.body?.source;
-    if (typeof url !== "string" || !url.startsWith("/api/stream/") || url.length > 4096) return res.status(400).json({error:"Invalid video source"});
-    const relative = decodeURIComponent(url.slice("/api/stream/".length).split("?")[0]);
-    const source = resolveSafePath(uploadsDir, relative);
-    if (!source || !isAllowedVideoFile(source)) return res.status(400).json({error:"Invalid video source"});
-    const stat = await fs.promises.stat(source);
-    if (!stat.isFile()) return res.status(404).json({error:"Video not found"});
-    res.json(await adaptiveVideos.prepare(source, req.body.retry === true));
-  } catch (error) {
-    if (error.code === "ENOENT") return res.status(404).json({error:"Video not found"});
-    if (error instanceof URIError) return res.status(400).json({error:"Invalid video source"});
-    console.error("Quality preparation failed:",error.code || error.message);
-    res.status(500).json({error:"Unable to prepare quality"});
-  }
-});
-app.get("/api/hls/:id/:asset", async (req,res) => {
-  if (!validateVideoAccess(req).allowed) return res.sendStatus(403);
-  res.set("Cache-Control","no-store");
-  try {
-    const file = await adaptiveVideos.asset(req.params.id,req.params.asset);
-    if (!file) return res.sendStatus(404);
-    if (file.endsWith(".m3u8")) {
-      const manifest = await fs.promises.readFile(file,"utf8");
-      res.type("application/vnd.apple.mpegurl").send(manifest.replace(/^(?!#)([^\r\n]+)$/gm, line => `${line}?sid=${encodeURIComponent(req.query.sid)}`));
-    } else res.type("video/mp2t").sendFile(file);
-  } catch (error) {
-    if (error.code === "ENOENT") return res.sendStatus(404);
-    console.error("HLS read failed:",error.code || error.message);
-    res.sendStatus(500);
-  }
-});
-
 // Custom streaming handler for large videos (HTTP 206 Partial Content Range)
 // Supports any nested folder depth & Direct URL Access Denied protection
 async function handleVideoStreaming(req, res) {
@@ -1076,12 +1040,11 @@ app.use("/thumbnails", express.static(thumbnailsDir, {
 app.use("/temp_chunks", (_req, res) => res.sendStatus(403));
 
 // Serve only frontend assets; uploaded files never pass through express.static.
-app.get(["/", "/index.html", "/app.js", "/style.css", "/quality-player.js"], (req, res) => {
+app.get(["/", "/index.html", "/app.js", "/style.css"], (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const filename = req.path === "/" ? "index.html" : path.basename(req.path).toLowerCase();
   res.sendFile(path.join(__dirname, "public", filename));
 });
-app.get("/hls.min.js", (_req,res) => res.sendFile(path.join(__dirname,"node_modules/hls.js/dist/hls.min.js")));
 app.use("/vendor", express.static(path.join(__dirname, "public", "vendor")));
 
 // Room playback state (Prototype-pollution safe dictionary)
