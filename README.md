@@ -1,6 +1,6 @@
 # TachyonStream
 
-Self-hosted watch-together video streaming with Express and Socket.IO. Includes synchronized playback, nested folders, thumbnails, and adaptive HLS quality.
+Self-hosted watch-together video streaming with Express and Socket.IO. Includes synchronized playback, nested folders, and thumbnails.
 
 [English](README.md) · [ภาษาไทย](docs/README_TH.md) · [日本語](docs/README_JA.md) · [MIT License](LICENSE)
 
@@ -14,7 +14,6 @@ Self-hosted watch-together video streaming with Express and Socket.IO. Includes 
 - Generate thumbnails and read video duration with FFmpeg/FFprobe after upload.
 - Use a video inside a folder or its descendants as the folder cover.
 - Open card actions using the three-dot button at the bottom right.
-- Choose Auto, Original, or an available HLS resolution independently on each device.
 - Create Discord Activity invitation links through the optional `/watch` bot command.
 
 Uploads do not resume after the page is refreshed or closed. Browser playback depends on the container and codec; accepting an upload does not guarantee direct playback on every browser.
@@ -28,7 +27,7 @@ Existing request protections include:
 - Library mutations require an active player session.
 - Origin and Fetch Metadata checks reject cross-site HTTP mutations and Socket.IO connections.
 - Uploaded videos and temporary chunks are not exposed through static serving, including encoded and case-varied URL attempts.
-- `/api/stream` and HLS playlists/segments validate the playback session and Referer.
+- `/api/stream` validates the playback session and Referer.
 
 These checks do not authenticate the server owner or verify Discord voice-channel membership. Room names are not access credentials. Browser code and request URLs remain visible in DevTools.
 
@@ -36,11 +35,10 @@ These checks do not authenticate the server owner or verify Discord voice-channe
 
 - Node.js and npm. Development regression checks have used Node.js 24.
 - FFmpeg and FFprobe in `PATH`, or explicit executable paths in `.env`.
-- FFmpeg with `libx264` and AAC support for adaptive quality.
 - `cloudflared` when using Cloudflare Tunnel.
 - A Discord Application and bot token when using the bot or Activity integration.
 
-Uploads can still be accepted without FFmpeg/FFprobe, but server thumbnails and adaptive conversion will fail. Browser thumbnail capture is a fallback only when the browser can decode the original video.
+Uploads can still be accepted without FFmpeg/FFprobe, but server thumbnails will fail. Browser thumbnail capture is a fallback only when the browser can decode the original video.
 
 ## Quick start
 
@@ -78,7 +76,7 @@ Discord_token=
 - `TUNNEL_TOKEN`: optional Cloudflare Tunnel token used by the Windows launcher.
 - `Discord_token`: optional bot token. `DISCORD_TOKEN` is also accepted; `Discord_token` takes precedence.
 - `FFMPEG_PATH` / `FFPROBE_PATH`: full executable paths when the server process cannot find the tools in `PATH`.
-- `DATA_DIR`: optional server data directory; defaults to `public`. Server uploads, chunks, thumbnails, and adaptive output use this directory.
+- `DATA_DIR`: optional server data directory; defaults to `public`. Server uploads, chunks, and thumbnails use this directory.
 
 Restart the affected processes after editing `.env`. Setting `STREAM_DOMAIN` does not create DNS records or configure a Tunnel.
 
@@ -148,29 +146,7 @@ Select a video before using playback shortcuts.
 - **Esc:** close a dialog, or return from Cinema/Upload to Library when an input or selection control is not focused. In fullscreen, the browser handles exiting fullscreen first.
 - **?:** show shortcut help. The navigation bar also has a help button.
 
-Letter shortcuts use physical English-keyboard positions. Playback shortcuts do not interfere with typing, focused controls, Upload, or open dialogs. Ctrl/Alt/Command combinations are left to the browser. Playback and seeking synchronize with the room; volume, fullscreen, and quality are local to each viewer.
-
-## Adaptive video quality
-
-The **Quality** menu offers:
-
-- **Auto:** HLS adapts to bandwidth and buffer conditions. With hls.js, automatic quality is also capped to the player size.
-- **360p / 480p / 720p / 1080p:** select a fixed available resolution. Outputs do not exceed the source height. Sources below 360p use their height rounded down to an even number.
-- **Original:** play the original file directly, including while adaptive versions are being prepared.
-
-Opening a video queues background conversion on first use. While `Preparing quality · Original` is displayed, the original remains available if its codec is supported by the browser. Adaptive quality becomes available **after every configured rendition has finished**. Switching between Original and HLS preserves playback time and play/pause state, but may require a brief reload. Manual HLS changes take effect at a suitable subsequent segment.
-
-The converter creates H.264 video with AAC audio when an audio track exists, without modifying the original. Compatible browsers use locally served hls.js. Safari can fall back to native HLS; native Auto is controlled by the browser.
-
-Conversion runs one video at a time, with two encoder threads and up to four waiting jobs. Long videos can take substantial time to prepare. Jobs continue after the viewing page is closed. Existing output is reused while the original file's path, size, and modification time remain unchanged.
-
-Generated output is stored in `DATA_DIR/adaptive/`, defaulting to `public/adaptive/`, and is excluded from Git. Conversion estimates required space before starting, with a 512 MB free-space allowance. Old cache entries are not deleted automatically. Moving or deleting the original makes its old adaptive output unavailable; a moved video needs preparation at its new path. Monitor disk usage periodically.
-
-Playlists and segments require a valid session and Referer and are not exposed as static files or shared CDN cache entries. If conversion fails, disk space is insufficient, or HLS is unsupported, Original remains available subject to browser codec support. Auto cannot guarantee uninterrupted playback on a connection slower than the lowest rendition.
-
-### Only Auto and Original appear
-
-Check the status beside Quality. Wait while conversion is queued or processing. If FFmpeg/FFprobe cannot be found, set full `FFMPEG_PATH` and `FFPROBE_PATH` values in `.env`, restart the web server, refresh the page, and use **Retry quality**. Disk-space and conversion failures display a reason without exposing private file paths.
+Letter shortcuts use physical English-keyboard positions. Playback shortcuts do not interfere with typing, focused controls, Upload, or open dialogs. Ctrl/Alt/Command combinations are left to the browser. Playback and seeking synchronize with the room; volume and fullscreen are local to each viewer.
 
 ## Streaming performance
 
@@ -211,7 +187,7 @@ This script uses `public/uploads` and `public/thumbnails`, rather than the serve
 
 ## Keep private configuration out of Git
 
-`.gitignore` excludes `.env`, logs, backups, launcher state, and generated video, thumbnail, chunk, and adaptive data. `.env.example` is tracked and must contain only placeholders or empty values.
+`.gitignore` excludes `.env`, logs, backups, launcher state, and generated video, thumbnail, and chunk data. `.env.example` is tracked and must contain only placeholders or empty values.
 
 Before committing:
 
@@ -229,7 +205,7 @@ The last command should produce no output. Review diffs and documentation screen
 npm test
 ```
 
-Regression checks use an isolated server and temporary data. They cover session/origin validation, static-path blocking, upload assembly, byte ranges and HEAD, thumbnails, folder labels, file moves, keyboard safeguards, inactive views, preview restrictions, library refresh coalescing, real HLS conversion, protected playlists/segments, quality selection, time preservation, and conversion retry after a missing executable. FFmpeg/FFprobe are required for synthetic fixtures.
+Regression checks use an isolated server and temporary data. They cover session/origin validation, static-path blocking, upload assembly, byte ranges and HEAD, thumbnails, folder labels, file moves, keyboard safeguards, inactive views, preview restrictions, and library refresh coalescing. FFmpeg/FFprobe are required for synthetic fixtures.
 
 These checks do not prove end-to-end Discord Activity, Cloudflare Tunnel, real-device Safari/mobile behavior, or multi-viewer performance over the deployed domain.
 
@@ -238,7 +214,7 @@ These checks do not prove end-to-end Discord Activity, Cloudflare Tunnel, real-d
 - **Playback returns `403`:** check `STREAM_DOMAIN`, restart the server, and refresh the page to obtain a new session.
 - **Upload returns `401`:** wait for the player to connect and show Synced, then retry. No administrator password is required.
 - **Library mutation returns `403`:** check that the page and API share an origin, including the Host forwarded by the reverse proxy.
-- **Missing thumbnails or quality options:** check FFmpeg/FFprobe paths, available disk space, the quality status, and server error logs.
+- **Missing thumbnails:** check FFmpeg/FFprobe paths, available disk space, and server error logs.
 - **Missing `/watch`:** check slash-command registration and the bot's server membership.
 - **Names contain `%20`:** refresh with `Ctrl+F5` to load current frontend assets.
 - **`XHR finished loading` / `Fetch finished loading`:** these messages alone are informational. Inspect the response status and body for an actual failure.
@@ -249,15 +225,12 @@ These checks do not prove end-to-end Discord Activity, Cloudflare Tunnel, real-d
 server.js                       HTTP API, streaming, and Socket.IO
 bot.js                          Discord Activity invitation bot
 public/app.js                   Player and library interface
-public/quality-player.js        Auto/manual HLS playback
 public/style.css                Interface styles
 public/uploads/                 Original videos
 public/temp_chunks/             In-progress upload chunks
 public/thumbnails/              Posters and duration metadata
-public/adaptive/                Generated HLS output
 lib/thumbnails.js               FFmpeg thumbnail generation
 lib/http-range.js               HTTP byte-range parsing
-lib/adaptive-video.js           Adaptive conversion queue and storage
 scripts/generate-thumbnails.mjs Batch thumbnail command
 tests/regression.mjs            Regression checks
 launch.ps1 / start.bat           Windows background startup
