@@ -2693,7 +2693,7 @@ if (uploadBtn) {
         }
       }
 
-      uploadStatus.textContent = "Assembling video chunks on server...";
+      uploadStatus.textContent = "Assembling & cleaning metadata on server...";
       const completeRes = await apiFetch("/api/complete-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

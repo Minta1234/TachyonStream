@@ -97,13 +97,18 @@ try {
   assert.equal((await request('/api/folders', {name:'New series'})).status,200);
   assert.equal((await request('/api/folders', {name:'Season 1',parent:'New series'})).status,200);
   const fixture = path.join(temp,'new-movie.mp4');
-  await promisify(execFile)(process.env.FFMPEG_PATH || 'ffmpeg', ['-hide_banner','-loglevel','error','-f','lavfi','-i','color=c=blue:s=160x90:d=1','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart','-y',fixture]);
+  await promisify(execFile)(process.env.FFMPEG_PATH || 'ffmpeg', ['-hide_banner','-loglevel','error','-f','lavfi','-i','color=c=blue:s=160x90:d=1','-metadata','title=Private Title','-metadata','artist=Private Author','-metadata','comment=Secret Note','-metadata','creation_time=2025-01-01T00:00:00Z','-metadata','location=+35.6895+139.6917/','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart','-y',fixture]);
   const videoBytes = await fs.readFile(fixture);
   const chunkResponse = await fetch(base+'/api/upload-chunk?uploadId=freshupload&chunkIndex=0&fileName=new-movie.mp4', {method:'POST',headers:{'Content-Type':'application/octet-stream',Origin:base,'X-Playback-Session':sid},body:videoBytes});
   assert.equal(chunkResponse.status,200);
   const completed = await request('/api/complete-upload',{uploadId:'freshupload',fileName:'new-movie.mp4',totalChunks:1,folder:'New series/Season 1'});
   assert.equal(completed.status,200);
   const freshMovie = await completed.json();
+  const probed = JSON.parse((await promisify(execFile)(process.env.FFPROBE_PATH || 'ffprobe', ['-v','error','-show_entries','format_tags:stream_tags','-of','json',path.join(temp,'uploads','New series','Season 1',freshMovie.filename)])).stdout);
+  for (const key of ['title','artist','comment','creation_time','location','encoder']) {
+    assert.equal(probed.format?.tags?.[key], undefined);
+    for (const stream of probed.streams || []) assert.equal(stream.tags?.[key], undefined);
+  }
   let library = await (await fetch(base+'/api/library')).json();
   const series = library.folders.find(folder => folder.name === 'New series');
   const season = series.subfolders[0];

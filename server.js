@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { pipeline } from "node:stream/promises";
-import { generateMovieThumbnail } from "./lib/thumbnails.js";
+import { cleanVideoMetadata, generateMovieThumbnail } from "./lib/thumbnails.js";
 
 dotenv.config();
 
@@ -154,7 +154,7 @@ function inspectVideoHeader(buffer, filename) {
 
 function isAllowedVideoFile(filename) {
   if (!filename) return false;
-  const ext = path.extname(filename).toLowerCase();
+  const base = path.basename(filename); if (base.startsWith(".") || base.includes(".clean.")) return false; const ext = path.extname(base).toLowerCase();
   return ALLOWED_VIDEO_EXTENSIONS.has(ext);
 }
 
@@ -285,6 +285,11 @@ app.post("/api/complete-upload", (req, res, next) => {
       }
     }
     await pipeline(chunks(), fs.createWriteStream(finalFilePath + ".part", { flags: "wx" }));
+    try {
+      await cleanVideoMetadata(finalFilePath + ".part", ext);
+    } catch (err) {
+      console.warn("Metadata cleaning skipped:", uniqueName, err.message);
+    }
     await fs.promises.rename(finalFilePath + ".part", finalFilePath);
 
     const videoRelativePath = path.relative(uploadsDir, finalFilePath).replace(/\\/g, "/");
