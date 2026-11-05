@@ -585,6 +585,19 @@ function toggleAppFullscreen() {
 
 if (btnFullscreen) btnFullscreen.addEventListener("click", toggleAppFullscreen);
 if (btnCinemaFullscreen) btnCinemaFullscreen.addEventListener("click", toggleAppFullscreen);
+if (cinemaVideoHolder) {
+  let clickPlayTimer = null;
+  cinemaVideoHolder.addEventListener("click", () => {
+    clearTimeout(clickPlayTimer);
+    clickPlayTimer = setTimeout(() => {
+      if (viewCinema.classList.contains("active") && customVideo.src) togglePlayPause();
+    }, 200);
+  });
+  cinemaVideoHolder.addEventListener("dblclick", () => {
+    clearTimeout(clickPlayTimer);
+    if (viewCinema.classList.contains("active")) toggleAppFullscreen();
+  });
+}
 
 // ==========================================================================
 // Playback Controls (Hero + Cinema HUD)
@@ -946,6 +959,8 @@ function updateHeroBillboard() {
     if (heroSubtitle) heroSubtitle.textContent = "Stream videos together in real-time with synchronized playback and auto-next support.";
     if (heroFolderTag) heroFolderTag.textContent = "Library";
     if (heroLiveBadge) heroLiveBadge.style.display = "none";
+    const heroBackdrop = document.getElementById("hero-backdrop");
+    if (heroBackdrop) heroBackdrop.style.backgroundImage = "";
     if (cinemaVideoTitle) cinemaVideoTitle.textContent = "No Video Selected";
     if (cinemaFolderName) cinemaFolderName.textContent = "Library";
     return;
@@ -962,6 +977,21 @@ function updateHeroBillboard() {
 
   if (cinemaVideoTitle) cinemaVideoTitle.textContent = cleanTitle;
   if (cinemaFolderName) cinemaFolderName.textContent = folderName;
+  const heroBackdrop = document.getElementById("hero-backdrop");
+  if (heroBackdrop && typeof currentLibraryData !== "undefined" && typeof findFolderByPath === "function") {
+    let thumbUrl = null;
+    if (currentPlayingFolder) {
+      const folderObj = findFolderByPath(currentLibraryData.folders || [], currentPlayingFolder);
+      if (folderObj) {
+        const vidObj = (folderObj.videos || []).find(v => v.name === rawFilename);
+        thumbUrl = vidObj?.thumbnailUrl || folderObj.thumbnailUrl || null;
+      }
+    } else {
+      const vidObj = (currentLibraryData.rootVideos || []).find(v => v.name === rawFilename);
+      thumbUrl = vidObj?.thumbnailUrl || null;
+    }
+    heroBackdrop.style.backgroundImage = thumbUrl ? `url("${thumbUrl}")` : "";
+  }
 }
 
 // ==========================================================================
@@ -1017,7 +1047,11 @@ function renderCatalogue() {
   // ------------------------------------------------------------------------
   // ROOT VIEW (currentFolderView == null): Show Folders & Standalone Videos
   if (!currentFolderView) {
-    const visibleFolders = folders.filter(f => matchesSearch(f.name) || (f.videos && f.videos.some(v => matchesSearch(v.name))));
+    const visibleFolders = folders.filter(function matchFolderTree(f) {
+      if (matchesSearch(f.name)) return true;
+      if (f.videos && f.videos.some(v => matchesSearch(v.name))) return true;
+      return Boolean(f.subfolders && f.subfolders.some(matchFolderTree));
+    });
     const visibleVideos = rootVideos.filter(v => matchesSearch(v.name));
 
     if (visibleFolders.length === 0 && visibleVideos.length === 0) {
@@ -1584,6 +1618,7 @@ function attachHoverPreview(containerEl, videoUrl, startTime = 15) {
     hoverVideo.loop = true;
     hoverVideo.autoplay = true;
     hoverVideo.src = `${getSecuredVideoUrl(videoUrl)}#t=${startTime}`;
+    containerEl.classList.add("has-hover-preview");
     containerEl.appendChild(hoverVideo);
     activeHoverPreviewEl = hoverVideo;
     hoverVideo.play().catch(() => {});
@@ -1599,6 +1634,7 @@ document.addEventListener("visibilitychange", () => {
 
 function removeActiveHoverPreview() {
   clearTimeout(hoverPreviewTimer);
+  document.querySelectorAll(".has-hover-preview").forEach(el => el.classList.remove("has-hover-preview"));
   if (activeHoverPreviewEl) {
     try {
       activeHoverPreviewEl.pause();
@@ -2089,11 +2125,28 @@ async function moveVideoPrompt(video) {
 // Search Bar Input Listener
 const searchInput = document.getElementById("library-search");
 const searchClearBtn = document.getElementById("search-clear-btn");
+const searchKbdHint = document.getElementById("search-kbd-hint");
+let searchDebounceTimer = null;
+
+function syncSearchHintUI() {
+  if (searchClearBtn) searchClearBtn.style.display = searchQuery ? "inline-flex" : "none";
+  if (searchKbdHint) searchKbdHint.style.display = searchQuery ? "none" : "inline-flex";
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+  if (event.key === "/" && searchInput && viewBrowse.classList.contains("active") && !activeModalResolve) {
+    if (event.target?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox'], [role='combobox']")) return;
+    event.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+  }
+});
 
 if (searchInput) {
   searchInput.addEventListener("input", (e) => {
     searchQuery = e.target.value.trim();
-    if (searchClearBtn) searchClearBtn.style.display = searchQuery ? "block" : "none";
+    syncSearchHintUI(); clearTimeout(searchDebounceTimer); searchDebounceTimer = setTimeout(() => renderCatalogue(), 90); return;
     renderCatalogue();
   });
 }
@@ -2103,6 +2156,7 @@ if (searchClearBtn) {
     searchQuery = "";
     if (searchInput) searchInput.value = "";
     searchClearBtn.style.display = "none";
+    syncSearchHintUI();
     renderCatalogue();
   });
 }
@@ -2479,7 +2533,8 @@ function formatTime(seconds) {
 
 // ==========================================================================
 // Chunked Upload System
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB per chunk
+const CHUNK_SIZE = 16 * 1024 * 1024; // 16 MB per chunk
+const UPLOAD_CONCURRENCY = 4; // 4 parallel chunk streams
 const uploadBtn = document.getElementById("upload-btn");
 const fileInput = document.getElementById("file-input");
 const uploadDropzone = document.getElementById("upload-dropzone");
@@ -2633,65 +2688,124 @@ if (uploadBtn) {
       return;
     }
 
-    const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    // Stable upload ID per file so an interrupted upload can resume instead of restarting.
+    const resumeKey = `tachyon_upload_${file.name}|${file.size}|${file.lastModified}|${CHUNK_SIZE}`;
+    let uploadId = null;
+    try { uploadId = localStorage.getItem(resumeKey); } catch (_) {}
+    if (!uploadId || !/^[a-zA-Z0-9_\-]{4,64}$/.test(uploadId)) {
+      uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      try { localStorage.setItem(resumeKey, uploadId); } catch (_) {}
+    }
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const targetFolder = currentSelectedUploadFolder || "";
+    const expectedChunkSize = (i) => Math.min(file.size, (i + 1) * CHUNK_SIZE) - i * CHUNK_SIZE;
 
     progressContainer.style.display = "flex";
     uploadBtn.disabled = true;
-    uploadStatus.textContent = "Starting chunked upload...";
+    uploadStatus.textContent = "Checking for a previous upload to resume...";
     uploadPercent.textContent = "0%";
     progressBarFill.style.width = "0%";
 
-    const startTime = Date.now();
+    // Ask the server which chunks it already has (fully written).
+    const doneChunks = new Set();
+    try {
+      const statusRes = await apiFetch(`/api/upload-status?uploadId=${encodeURIComponent(uploadId)}`);
+      if (statusRes.ok) {
+        const { chunks = {} } = await statusRes.json();
+        for (const [idx, size] of Object.entries(chunks)) {
+          const i = Number(idx);
+          if (i < totalChunks && size === expectedChunkSize(i)) doneChunks.add(i);
+        }
+      }
+    } catch (_) {}
+
     let uploadedBytes = 0;
+    for (const i of doneChunks) uploadedBytes += expectedChunkSize(i);
+    const resumedBytes = uploadedBytes;
+    let completedChunks = doneChunks.size;
+    const startTime = Date.now();
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const MAX_ATTEMPTS = 10;
+    const CHUNK_TIMEOUT_MS = 120000;
+    let uploadAborted = false;
+
+    const refreshProgress = (statusText) => {
+      const pct = Math.floor((uploadedBytes / file.size) * 100);
+      progressBarFill.style.width = pct + "%";
+      uploadPercent.textContent = pct + "%";
+      if (statusText) uploadStatus.textContent = statusText;
+      uploadChunks.textContent = `Chunk: ${completedChunks}/${totalChunks}`;
+      uploadSize.textContent = `${(uploadedBytes / 1024 / 1024).toFixed(1)} MB / ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+      const elapsedSec = (Date.now() - startTime) / 1000;
+      if (elapsedSec > 0.5) {
+        uploadSpeed.textContent = `${((uploadedBytes - resumedBytes) / 1024 / 1024 / elapsedSec).toFixed(1)} MB/s`;
+      }
+    };
+    refreshProgress(doneChunks.size ? `Resuming upload (${doneChunks.size}/${totalChunks} chunks already on server)...` : "Starting upload...");
 
     try {
-      for (let i = 0; i < totalChunks; i++) {
+      const uploadSingleChunk = async (i) => {
         const start = i * CHUNK_SIZE;
         const end = Math.min(file.size, start + CHUNK_SIZE);
         const chunkBlob = file.slice(start, end);
-
-        let success = false;
-        let retries = 3;
-
-        while (!success && retries > 0) {
+        for (let attempt = 1; ; attempt++) {
+          if (uploadAborted) throw new Error("Upload cancelled");
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), CHUNK_TIMEOUT_MS);
           try {
             const chunkRes = await apiFetch(`/api/upload-chunk?uploadId=${uploadId}&chunkIndex=${i}&fileName=${encodeURIComponent(file.name)}`, {
               method: "POST",
               headers: { "Content-Type": "application/octet-stream" },
-              body: chunkBlob
+              body: chunkBlob,
+              signal: controller.signal
             });
-            if (chunkRes.ok) {
-              success = true;
-            } else {
+            if (!chunkRes.ok) {
               let errMessage = "Chunk failed with status " + chunkRes.status;
               try {
                 const errJson = await chunkRes.json();
                 if (errJson && errJson.error) errMessage = errJson.error;
               } catch (_) {}
-              throw new Error(errMessage);
+              const err = new Error(errMessage);
+              // 400/403/413 are permanent rejections (bad file, bad path, too large) - don't retry.
+              err.permanent = [400, 403, 413].includes(chunkRes.status);
+              throw err;
             }
+            break;
           } catch (e) {
-            retries--;
-            if (retries === 0) throw e;
-            await new Promise(r => setTimeout(r, 1000));
+            if (e.permanent || attempt >= MAX_ATTEMPTS) throw e;
+            // Exponential backoff (1s, 2s, 4s, 8s, then 15s) so short tunnel / network drops are survived.
+            const delay = Math.min(15000, 1000 * 2 ** (attempt - 1));
+            refreshProgress(`Connection interrupted - retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`);
+            await sleep(delay);
+          } finally {
+            clearTimeout(timer);
           }
         }
-
+        completedChunks++;
         uploadedBytes += (end - start);
-        const pct = Math.round((uploadedBytes / file.size) * 100);
-        progressBarFill.style.width = pct + "%";
-        uploadPercent.textContent = pct + "%";
-        uploadChunks.textContent = `Chunk: ${i + 1}/${totalChunks}`;
-        uploadSize.textContent = `${(uploadedBytes / 1024 / 1024).toFixed(1)} MB / ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+        refreshProgress("Uploading chunks in parallel...");
+      };
 
-        const elapsedSec = (Date.now() - startTime) / 1000;
-        if (elapsedSec > 0) {
-          const speedMBs = (uploadedBytes / 1024 / 1024 / elapsedSec).toFixed(1);
-          uploadSpeed.textContent = `${speedMBs} MB/s`;
+      const pending = [];
+      for (let i = 0; i < totalChunks; i++) if (!doneChunks.has(i)) pending.push(i);
+
+      // chunk_0 goes first on its own so the server validates the file header before we send the rest.
+      if (pending[0] === 0) await uploadSingleChunk(pending.shift());
+
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(UPLOAD_CONCURRENCY, pending.length) }, async () => {
+        while (!uploadAborted && cursor < pending.length) {
+          const idx = pending[cursor++];
+          try {
+            await uploadSingleChunk(idx);
+          } catch (e) {
+            uploadAborted = true;
+            throw e;
+          }
         }
-      }
+      });
+      await Promise.all(workers);
 
       uploadStatus.textContent = "Assembling & cleaning metadata on server...";
       const completeRes = await apiFetch("/api/complete-upload", {
@@ -2707,7 +2821,7 @@ if (uploadBtn) {
 
       const result = await completeRes.json();
       if (result.url) {
-        uploadStatus.textContent = "Upload complete! Streaming now...";
+        try { localStorage.removeItem(resumeKey); } catch (_) {} uploadStatus.textContent = "Upload complete! Streaming now...";
         uploadPercent.textContent = "100%";
         playVideo(result.url, result.folder || null);
         loadLibrary();
@@ -2724,13 +2838,15 @@ if (uploadBtn) {
         throw new Error(result.error || "Assembly failed");
       }
     } catch (err) {
-      uploadStatus.textContent = "Upload failed!";
+      const isRejection = Boolean(err.permanent);
+      if (isRejection) { try { localStorage.removeItem(resumeKey); } catch (_) {} }
+      uploadStatus.textContent = isRejection ? "Upload rejected!" : "Upload paused - connection lost";
       uploadSpeed.textContent = err.message;
       showAlertModal({
-        title: "Upload Rejected",
-        message: err.message || "Upload failed. TachyonStream only accepts valid movie files."
+        title: isRejection ? "Upload Rejected" : "Upload Interrupted",
+        message: isRejection ? (err.message || "Upload failed. TachyonStream only accepts valid movie files.") : `${err.message}\n\n${completedChunks}/${totalChunks} chunks are saved on the server. Select the same file and click Upload again to resume where it stopped.`
       });
-      showToast("Upload Rejected");
+      showToast(isRejection ? "Upload Rejected" : "Upload paused - click Upload to resume");
       setTimeout(() => {
         progressContainer.style.display = "none";
       }, 5000);
@@ -2891,3 +3007,5 @@ function showConfirmModal({ title, message, confirmText = "Delete", isDanger = t
 switchView("browse");
 loadLibrary();
 updateSoundUI();
+
+

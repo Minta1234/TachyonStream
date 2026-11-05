@@ -200,14 +200,46 @@ app.post("/api/upload-chunk", (req, res) => {
     fs.mkdirSync(chunkFolder, { recursive: true });
   }
 
+  // Write to a temp file then rename, so an interrupted request never leaves a partial chunk behind.
   const chunkPath = path.join(chunkFolder, `chunk_${cleanChunkIndex}`);
-  fs.writeFile(chunkPath, req.body, (err) => {
+  const tmpChunkPath = `${chunkPath}.${crypto.randomBytes(4).toString("hex")}.tmp`;
+  fs.writeFile(tmpChunkPath, req.body, (err) => {
     if (err) {
       console.error("Chunk write error:", err);
+      fs.rm(tmpChunkPath, { force: true }, () => {});
       return res.status(500).json({ error: "Failed to write chunk" });
     }
-    res.json({ success: true, chunkIndex: cleanChunkIndex });
+    fs.rename(tmpChunkPath, chunkPath, (renameErr) => {
+      if (renameErr) {
+        console.error("Chunk rename error:", renameErr);
+        fs.rm(tmpChunkPath, { force: true }, () => {});
+        return res.status(500).json({ error: "Failed to write chunk" });
+      }
+      res.json({ success: true, chunkIndex: cleanChunkIndex });
+    });
   });
+});
+
+// Resume support: report which chunks (and their sizes) the server already has.
+app.get("/api/upload-status", async (req, res) => {
+  const cleanUploadId = sanitizeUploadId(req.query.uploadId);
+  if (!cleanUploadId) return res.status(400).json({ error: "Invalid uploadId" });
+  const chunkFolder = path.join(tempChunksDir, cleanUploadId);
+  if (!isPathInside(tempChunksDir, chunkFolder)) return res.status(403).json({ error: "Forbidden" });
+  try {
+    const entries = await fs.promises.readdir(chunkFolder);
+    const chunks = {};
+    await Promise.all(entries.map(async (name) => {
+      const match = /^chunk_(\d+)$/.exec(name);
+      if (!match) return;
+      const stat = await fs.promises.stat(path.join(chunkFolder, name));
+      chunks[match[1]] = stat.size;
+    }));
+    res.json({ chunks });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.json({ chunks: {} });
+    res.status(500).json({ error: "Could not read upload status" });
+  }
 });
 
 // Finalize Chunk Upload and Assemble (supports folder destination)
@@ -246,7 +278,7 @@ app.post("/api/complete-upload", (req, res, next) => {
   // Inspect chunk_0 header before assembling
   const chunk0Path = path.join(chunkFolder, "chunk_0");
   if (fs.existsSync(chunk0Path)) {
-    const chunk0Data = fs.readFileSync(chunk0Path);
+    const fd = fs.openSync(chunk0Path, "r"); const chunk0Buf = Buffer.alloc(512); const bytesRead = fs.readSync(fd, chunk0Buf, 0, 512, 0); fs.closeSync(fd); const chunk0Data = chunk0Buf.subarray(0, bytesRead);
     const headerCheck = inspectVideoHeader(chunk0Data, fileName);
     if (!headerCheck.valid) {
       fs.rmSync(chunkFolder, { recursive: true, force: true });
@@ -281,10 +313,10 @@ app.post("/api/complete-upload", (req, res, next) => {
     }
     async function* chunks() {
       for (let i = 0; i < cleanTotalChunks; i++) {
-        yield* fs.createReadStream(path.join(chunkFolder, `chunk_${i}`));
+        yield* fs.createReadStream(path.join(chunkFolder, `chunk_${i}`), { highWaterMark: 4 * 1024 * 1024 });
       }
     }
-    await pipeline(chunks(), fs.createWriteStream(finalFilePath + ".part", { flags: "wx" }));
+    await pipeline(chunks(), fs.createWriteStream(finalFilePath + ".part", { flags: "wx", highWaterMark: 4 * 1024 * 1024 }));
     try {
       await cleanVideoMetadata(finalFilePath + ".part", ext);
     } catch (err) {
