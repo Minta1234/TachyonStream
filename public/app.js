@@ -250,12 +250,12 @@ socket.on("sync-state", (state) => {
     customVideo.muted = false;
     customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
     customVideo.play().then(() => {
-      showUnmuteAlert(false);
+      isMutedByAutoplay = false; showUnmuteAlert(false);
       updateSoundUI();
     }).catch(() => {
       customVideo.muted = true;
       customVideo.play().catch(() => { });
-      showUnmuteAlert(true);
+      isMutedByAutoplay = true; showUnmuteAlert(true);
       updateSoundUI();
     });
   } else {
@@ -309,12 +309,12 @@ socket.on("change-source", ({ source, folder }) => {
     customVideo.muted = false;
     customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
     customVideo.play().then(() => {
-      showUnmuteAlert(false);
+      isMutedByAutoplay = false; showUnmuteAlert(false);
       updateSoundUI();
     }).catch(() => {
       customVideo.muted = true;
       customVideo.play().catch(() => { });
-      showUnmuteAlert(true);
+      isMutedByAutoplay = true; showUnmuteAlert(true);
       updateSoundUI();
     });
   }
@@ -350,7 +350,7 @@ socket.on("video-play", ({ time }) => {
   customVideo.play().catch(() => {
     customVideo.muted = true;
     customVideo.play().catch(() => { });
-    showUnmuteAlert(true);
+    isMutedByAutoplay = true; showUnmuteAlert(true);
     updateSoundUI();
   });
   updateStatus("Synced: Playing");
@@ -415,6 +415,8 @@ function showToast(message) {
   }
 }
 
+let isMutedByAutoplay = false;
+
 function showUnmuteAlert(show) {
   const banner = document.getElementById("unmute-alert");
   if (banner) {
@@ -426,12 +428,15 @@ function updateSoundUI() {
   const isMuted = customVideo.muted || customVideo.volume === 0;
   const soundIconHtml = isMuted ? SVG_VOL_MUTED : SVG_VOL_ON;
   const soundText = isMuted ? "Muted" : "Sound ON";
+  const soundTitle = isMuted ? "Audio is Muted (Click to Unmute)" : "Audio is Playing (Click to Mute)";
 
   const navBtnSound = document.getElementById("nav-btn-sound");
   const navIcon = document.getElementById("nav-sound-icon");
   const navText = document.getElementById("nav-sound-text");
   if (navBtnSound) {
     navBtnSound.classList.toggle("muted", isMuted);
+    navBtnSound.setAttribute("title", soundTitle);
+    navBtnSound.setAttribute("aria-label", soundTitle);
     if (navIcon) navIcon.innerHTML = soundIconHtml;
     if (navText) navText.textContent = soundText;
   }
@@ -441,8 +446,17 @@ function updateSoundUI() {
   const heroText = document.getElementById("hero-sound-text");
   if (heroBtn) {
     heroBtn.classList.toggle("muted", isMuted);
+    heroBtn.setAttribute("title", soundTitle);
+    heroBtn.setAttribute("aria-label", soundTitle);
     if (heroIcon) heroIcon.innerHTML = soundIconHtml;
     if (heroText) heroText.textContent = soundText;
+  }
+
+  const btnCinemaMute = document.getElementById("btn-cinema-mute");
+  if (btnCinemaMute) {
+    btnCinemaMute.classList.toggle("muted", isMuted);
+    btnCinemaMute.setAttribute("title", soundTitle);
+    btnCinemaMute.setAttribute("aria-label", soundTitle);
   }
 
   const volumeIcon = document.getElementById("volume-icon");
@@ -454,13 +468,24 @@ function updateSoundUI() {
   }
 }
 
-function toggleAudioMute() {
-  if (customVideo.muted || customVideo.volume === 0) {
+function toggleAudioMute(e) {
+  if (e) {
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+    if (typeof e.preventDefault === "function") e.preventDefault();
+  }
+  isMutedByAutoplay = false; showUnmuteAlert(false);
+
+  const currentlyMuted = customVideo.muted || customVideo.volume === 0;
+  if (currentlyMuted) {
     customVideo.muted = false;
-    customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
-    showUnmuteAlert(false);
+    if (customVideo.volume === 0) {
+      customVideo.volume = (customVideo._savedVolume && customVideo._savedVolume > 0) ? customVideo._savedVolume : 1.0;
+    }
     showToast("Audio Unmuted");
   } else {
+    if (customVideo.volume > 0) {
+      customVideo._savedVolume = customVideo.volume;
+    }
     customVideo.muted = true;
     showToast("Audio Muted");
   }
@@ -470,12 +495,14 @@ function toggleAudioMute() {
 // Unmute banner click
 const unmuteAlertEl = document.getElementById("unmute-alert");
 if (unmuteAlertEl) {
-  unmuteAlertEl.addEventListener("click", () => {
+  unmuteAlertEl.addEventListener("click", (e) => {
+    if (e) e.stopPropagation();
+    isMutedByAutoplay = false;
     customVideo.muted = false;
-    customVideo.volume = 1.0;
-    showUnmuteAlert(false);
+    if (customVideo.volume === 0) customVideo.volume = 1.0;
+    isMutedByAutoplay = false; showUnmuteAlert(false);
     updateSoundUI();
-    showToast("Sound Unmuted");
+    showToast("Audio Unmuted");
   });
 }
 
@@ -486,15 +513,19 @@ if (navBtnSound) navBtnSound.addEventListener("click", toggleAudioMute);
 const heroBtnSound = document.getElementById("btn-hero-sound");
 if (heroBtnSound) heroBtnSound.addEventListener("click", toggleAudioMute);
 
-// Global user gesture listener: if user clicks anywhere while playing muted, auto-unmute
-document.addEventListener("click", () => {
-  if (customVideo.src && !customVideo.paused && customVideo.muted) {
+// Auto-unmute ONLY on first user gesture if restricted by browser autoplay policy
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#nav-btn-sound, #btn-hero-sound, #btn-cinema-mute, #cinema-volume, .volume-box, #unmute-alert")) {
+    return;
+  }
+  if (isMutedByAutoplay && customVideo.src && !customVideo.paused) {
+    isMutedByAutoplay = false;
     customVideo.muted = false;
-    customVideo.volume = 1.0;
-    showUnmuteAlert(false);
+    customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
+    isMutedByAutoplay = false; showUnmuteAlert(false);
     updateSoundUI();
   }
-}, { once: false });
+}, { capture: true });
 
 // ==========================================================================
 // View Routing & Player Docking (Browse / Cinema / Upload)
@@ -612,13 +643,13 @@ function playVideo(videoUrl, folderPath = null, clickedCard = null) {
   customVideo.volume = 1.0;
 
   customVideo.play().then(() => {
-    showUnmuteAlert(false);
+    isMutedByAutoplay = false; showUnmuteAlert(false);
     updateSoundUI();
   }).catch((err) => {
     console.warn("Autoplay with sound restricted, playing muted with unmute banner:", err);
     customVideo.muted = true;
     customVideo.play().catch(() => { });
-    showUnmuteAlert(true);
+    isMutedByAutoplay = true; showUnmuteAlert(true);
     updateSoundUI();
   });
 
@@ -647,12 +678,12 @@ function togglePlayPause() {
     customVideo.muted = false;
     customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
     customVideo.play().then(() => {
-      showUnmuteAlert(false);
+      isMutedByAutoplay = false; showUnmuteAlert(false);
       updateSoundUI();
     }).catch(() => {
       customVideo.muted = true;
       customVideo.play().catch(() => { });
-      showUnmuteAlert(true);
+      isMutedByAutoplay = true; showUnmuteAlert(true);
       updateSoundUI();
     });
     socket.emit("video-play", { time: customVideo.currentTime });

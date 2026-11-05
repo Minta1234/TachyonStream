@@ -1704,6 +1704,10 @@ html, body {
   justify-content: center;
 }
 
+.transport-btn.icon-only.muted {
+  color: #fca5a5;
+}
+
 .volume-box {
   display: flex;
   align-items: center;
