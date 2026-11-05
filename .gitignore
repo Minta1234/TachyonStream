@@ -12,3 +12,4 @@ public/uploads/*
 public/thumbnails/*
 !public/thumbnails/.gitkeep
 folder-options-fixed.png
+test.mp4
