@@ -127,6 +127,21 @@ try {
   assert.equal((await fetch(base + movedSeries.videos[0].thumbnailUrl)).status, 200);
   assert.deepEqual(await fs.readFile('public/vendor/treeselectjs/treeselectjs.umd.js'), await fs.readFile('node_modules/treeselectjs/dist/treeselectjs.umd.js'));
   const app = await fs.readFile('public/app.js', 'utf8');
+  const playbackNodes = new Map();
+  const playbackContext = {SVG_PLAY_BTN:'play-svg',SVG_PAUSE_BTN:'pause-svg',document:{getElementById(id){
+    if(!playbackNodes.has(id))playbackNodes.set(id,{attributes:{},setAttribute(name,value){this.attributes[name]=value;}});
+    return playbackNodes.get(id);
+  }}};
+  vm.createContext(playbackContext);
+  vm.runInContext(app.slice(app.indexOf('function updatePlayButtonUI'),app.indexOf('customVideo.addEventListener("ended", () => updatePlayButtonUI')),playbackContext);
+  for(const playing of [true,false,true,false]) {
+    playbackContext.updatePlayButtonUI(playing);
+    assert.equal(playbackNodes.get('hero-play-label').textContent,playing?'Pause':'Play');
+    assert.equal(playbackNodes.get('hero-playback-status').textContent,playing?'Playing':'Paused');
+    assert.equal(playbackNodes.get('hero-play-icon').innerHTML,playing?'pause-svg':'play-svg');
+    assert.equal(playbackNodes.get('btn-toggle-play').attributes['aria-label'],playing?'Pause':'Play');
+  }
+
   const iconContext = {};
   vm.runInNewContext(app.slice(0, app.indexOf('// ==========================================================================')), iconContext);
   for (const name of ['folder', 'repeat', 'film', 'upload']) {
@@ -177,7 +192,8 @@ try {
     viewBrowse: views[0], viewCinema: views[1], viewUpload: views[2],
     navBtnBrowse: views[0], navBtnCinema: views[1], navBtnUpload: views[2],
     folderTreeselectInstance: null, heroVideoDock: null, playerContainer: null, cinemaVideoHolder: null,
-    currentFolderView: null, resetIdleTimer() { }, closeAllPopovers() { }
+    currentFolderView: null, resetIdleTimer() { }, closeAllPopovers() { },
+    document:{getElementById:()=>({classList:{toggle(){}}})},clearTimeout(){},idleTimer:null
   };
   vm.createContext(viewContext);
   vm.runInContext(app.slice(app.indexOf('function switchView'), app.indexOf('navBtnBrowse.addEventListener')), viewContext);
@@ -185,6 +201,39 @@ try {
     viewContext.switchView(name);
     views.forEach((view, i) => assert.equal(view.inert, i !== index % 3));
   }
+  let idleCallback;
+  let hidden=false;
+  const huds=[{inert:false},{inert:false}];
+  const idleContext={cinemaKeyboardFocus:false,isScrubbingTimeline:false,idleTimer:null,
+    active:true,interacting:false,customVideo:{paused:false},document:{activeElement:{}},
+    cinemaTheater:{classList:{toggle(_name,value){hidden=value;}},querySelectorAll:()=>huds,
+      querySelector:()=>idleContext.interacting?{}:null,contains:()=>true},
+    viewCinema:{classList:{contains:()=>idleContext.active}},
+    clearTimeout(){idleCallback=null;},setTimeout(callback,delay){assert.equal(delay,2500);idleCallback=callback;return 1;}};
+  vm.createContext(idleContext);
+  const idleStart=app.indexOf('function setCinemaControlsVisible');
+  vm.runInContext(app.slice(idleStart,app.indexOf('\nif (cinemaTheater) {',idleStart)),idleContext);
+  idleContext.resetIdleTimer();assert.equal(hidden,false);idleCallback();assert.equal(hidden,true);assert.ok(huds.every(hud=>hud.inert));
+  for(const reason of ['paused','keyboard','drawer','scrubbing']) {
+    idleContext.customVideo.paused=reason==='paused';idleContext.cinemaKeyboardFocus=reason==='keyboard';
+    idleContext.interacting=reason==='drawer';idleContext.isScrubbingTimeline=reason==='scrubbing';
+    idleContext.resetIdleTimer();idleCallback();assert.equal(hidden,false);assert.ok(huds.every(hud=>!hud.inert));
+  }
+  idleContext.active=false;idleContext.resetIdleTimer();assert.equal(idleCallback,null);
+  let touchHidden=false;
+  const touchHandlers=new Map();
+  const touchContext={cinemaKeyboardFocus:false,cinemaPointerType:'mouse',cinemaTouchStartedHidden:false,idleTimer:null,
+    viewCinema:{classList:{contains:()=>true}},customVideo:{paused:false,addEventListener(){}},document:{addEventListener(){}},clearTimeout(){},
+    cinemaTheater:{addEventListener(name,handler){touchHandlers.set(name,handler);},classList:{contains:()=>touchHidden}},
+    resetIdleTimer(){touchHidden=false;},setCinemaControlsVisible(visible){touchHidden=!visible;}};
+  vm.createContext(touchContext);
+  vm.runInContext(app.slice(app.indexOf('\nif (cinemaTheater) {',idleStart),app.indexOf('// Keyboard shortcuts')),touchContext);
+  const videoTap={pointerType:'touch',target:{closest:()=>null}};
+  touchHandlers.get('pointerdown')(videoTap);touchHandlers.get('click')(videoTap);assert.equal(touchHidden,true);
+  touchHandlers.get('focusout')();assert.equal(touchHidden,true);
+  touchHandlers.get('pointerdown')(videoTap);
+  touchContext.resetIdleTimer(); // Compatibility pointer activity can reveal the HUD before click.
+  touchHandlers.get('click')(videoTap);assert.equal(touchHidden,false);
   let previewDelay;
   const previewContext = {
     hoverPreviewTimer: null, removeActiveHoverPreview() { }, clearTimeout() { },

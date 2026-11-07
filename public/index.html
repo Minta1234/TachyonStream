@@ -5,12 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="origin">
-  <title>TachyonStream - Experience</title>
+  <title>TachyonStream — Watch together</title>
   <link rel="icon" href="https://avatars.githubusercontent.com/u/187171179?v=4" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="vendor/treeselectjs/treeselectjs.css">
-  <link rel="stylesheet" href="style.css?v=7.8.0">
+  <link rel="stylesheet" href="style.css?v=8.1.0">
 </head>
 
 <body>
@@ -40,7 +40,7 @@
         <!-- Minimal Search Bar -->
         <div class="search-box">
           <svg class="search-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="library-search" aria-label="Search title or folder" placeholder="Search title or folder..." autocomplete="off" />
+          <input type="text" id="library-search" aria-label="Search title or folder" placeholder="Search library" autocomplete="off" />
           <kbd class="search-kbd-hint" id="search-kbd-hint" aria-hidden="true">/</kbd>
           <button id="search-clear-btn" class="search-clear-btn" title="Clear search" style="display: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
         </div>
@@ -50,7 +50,7 @@
         <!-- Audio Quick Toggle -->
         <button id="nav-btn-sound" class="nav-sound-btn" title="Audio Mute/Unmute">
           <span id="nav-sound-icon" class="svg-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></span>
-          <span id="nav-sound-text">Sound ON</span>
+          <span id="nav-sound-text">Unmute</span>
         </button>
 
         <!-- Room Status & Users -->
@@ -98,26 +98,31 @@
                   <span class="eq-bar"></span>
                   <span class="eq-bar"></span>
                 </span>
-                LIVE ROOM
+                Room in sync
               </span>
               <span class="hero-folder-tag" id="hero-folder-tag">Library</span>
             </div>
 
-            <h1 class="hero-title" id="hero-title">Select a video or series to begin</h1>
-            <p class="hero-subtitle" id="hero-subtitle">Synchronized multi-user streaming with folder management and live previews.</p>
+            <h1 class="hero-title" id="hero-title">Choose a film to watch together</h1>
+            <p class="hero-subtitle" id="hero-subtitle">Open a film or episode from the library. Playback stays in sync with the room.</p>
 
             <div class="hero-actions" id="hero-actions">
               <button class="hero-btn hero-btn-primary" id="btn-hero-watch">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                Full Cinema
+                Open cinema
               </button>
-              <button class="hero-btn hero-btn-secondary" id="btn-hero-playpause">
+              <div class="hero-playback-control">
+              <button class="hero-btn hero-btn-secondary" id="btn-hero-playpause" aria-label="Play" aria-describedby="hero-playback-status">
                 <span id="hero-play-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span>
-                Play / Pause
+                <span id="hero-play-label">Play</span>
               </button>
+              <span id="hero-playback-status" class="playback-state" role="status">Paused</span>
+              </div>
+            </div>
+            <div class="hero-tools">
               <button class="hero-btn hero-btn-ghost hero-sound-toggle" id="btn-hero-sound" title="Audio Mute/Unmute">
                 <span id="hero-sound-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></span>
-                <span id="hero-sound-text">Sound ON</span>
+                <span id="hero-sound-text">Unmute</span>
               </button>
               <button class="hero-btn hero-btn-ghost" id="btn-hero-back10" title="Rewind 10 seconds">
                 -10s
@@ -184,10 +189,11 @@
           <!-- Floating Top Header (Auto hides when idle) -->
           <div class="cinema-hud cinema-hud-top" id="cinema-hud-top">
             <button id="btn-cinema-back-browse" class="hud-btn hud-back-btn">
-              Back to Library
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
+              Library
             </button>
             <div class="cinema-title-meta">
-              <span class="cinema-playing-label">NOW STREAMING</span>
+              <span class="cinema-playing-label">Now playing</span>
               <h2 class="cinema-video-title" id="cinema-video-title">No Video Selected</h2>
               <span class="cinema-folder-name" id="cinema-folder-name">Root Library</span>
             </div>
@@ -221,7 +227,7 @@
             <!-- YouTube Transport Controls Bar -->
             <div class="transport-controls">
               <div class="transport-left">
-                <button id="btn-toggle-play" class="transport-btn transport-main-btn" title="Play / Pause">
+                <button id="btn-toggle-play" class="transport-btn transport-main-btn" title="Play / pause">
                   <span id="cinema-play-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span>
                 </button>
                 <button id="btn-backward-10" class="transport-btn icon-only" title="Rewind 10 seconds">
@@ -280,7 +286,7 @@
         <div class="upload-dialog-card">
           <div class="upload-card-header">
             <div class="upload-header-text">
-              <h2>Upload Video to TachyonStream</h2>
+              <h2>Add a video</h2>
               <p>Supports MP4, WebM, MKV, MOV. Chunked uploads are assembled automatically. Keep this page open until completion.</p>
             </div>
             <button class="upload-close-btn" id="btn-close-upload" aria-label="Close upload"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
@@ -288,15 +294,15 @@
 
           <div class="upload-dropzone" id="upload-dropzone">
             <div class="dropzone-icon"><svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4m-4 8h4m10-8h4m-4 8h4"/></svg></div>
-            <p class="dropzone-main-text">Drag & drop movie files here, or <span class="browse-link">browse</span></p>
-            <p class="dropzone-sub-text">Only video formats (MP4, MKV, WebM, MOV, AVI) are supported. Non-movie files will be rejected.</p>
+            <p class="dropzone-main-text">Drop a video here, or <span class="browse-link">browse</span></p>
+            <p class="dropzone-sub-text">MP4, WebM, MKV, MOV and AVI. Other supported video formats can also be selected.</p>
             <input type="file" id="file-input" accept="video/*,.mp4,.mkv,.webm,.mov,.avi,.flv,.wmv,.m4v" />
           </div>
 
           <div class="upload-options">
             <div class="form-group custom-folder-form-group">
               <div class="folder-label-header">
-                <label for="upload-folder-select">Target Series / Folder</label>
+                <label for="upload-folder-select">Destination folder</label>
                 <button type="button" class="btn-quick-new-folder" id="btn-upload-quick-folder" title="Create a new folder or subfolder">
                   <span>+</span> New Folder
                 </button>
@@ -312,7 +318,7 @@
             </div>
             <div class="form-group-btn">
               <button id="upload-btn" class="apple-btn apple-btn-primary">
-                <span><svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 16V3m-5 5 5-5 5 5M3 16v5h18v-5"/></svg></span> Upload & Stream Immediately
+                <span><svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 16V3m-5 5 5-5 5 5M3 16v5h18v-5"/></svg></span> Upload and play
               </button>
             </div>
           </div>
@@ -363,7 +369,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="vendor/treeselectjs/treeselectjs.umd.js?v=1.0.2-fixed"></script>
-  <script src="app.js?v=7.8.0"></script>
+  <script src="app.js?v=8.1.0"></script>
 </body>
 
 </html>

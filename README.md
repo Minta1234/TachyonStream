@@ -240,3 +240,11 @@ stop.ps1 / stop.bat              Windows shutdown
 ## License
 
 [MIT License](LICENSE)
+
+## Interface design
+
+The screening-room interface uses graphite controls, a restrained red selection mark, SVG icons, and 44px mobile targets so film imagery stays prominent. See [design notes and attribution](docs/INTERFACE_DESIGN.md).
+
+## Cinema viewing
+
+Cinema hides the site navigation and gives the video the full viewport, preserving its aspect ratio. Title actions use a transparent edge scrim and transport controls float above the lower edge. Controls hide after 2.5 seconds of inactivity while playing. Move the pointer, tap the video, or press Tab to show them. Touch can also dismiss visible controls while playing. Paused playback, keyboard focus, scrubbing, and an open Episodes drawer keep controls available. The timeline supports native touch and keyboard range interaction. Use Library or Esc to return.

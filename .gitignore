@@ -13,3 +13,6 @@ public/thumbnails/*
 !public/thumbnails/.gitkeep
 folder-options-fixed.png
 test.mp4
+test.mov
+*.mov
+tools/

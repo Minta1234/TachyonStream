@@ -1,6 +1,6 @@
 function uiIcon(name) {
   const paths = {"folder": "<path d=\"M3 7V5h6l2 2h10v13H3z\"/>", "repeat": "<path d=\"m17 2 4 4-4 4M3 11V6h18M7 22l-4-4 4-4m14-1v5H3\"/>", "film": "<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M7 3v18M17 3v18M3 8h4m-4 8h4m10-8h4m-4 8h4\"/>", "upload": "<path d=\"M12 16V3m-5 5 5-5 5 5M3 16v5h18v-5\"/>"};
-  return `<svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+  return `<svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
 }
 
 // ==========================================================================
@@ -322,7 +322,7 @@ socket.on("change-source", ({ source, folder }) => {
   const rawName = decodeURIComponent(pathBasename(source));
   const cleanName = formatMediaTitle(rawName);
   updateStatus(`Playing: ${cleanName}`);
-  showToast(`Now Playing: ${cleanName}`);
+  showToast(`Now playing: ${cleanName}`);
   updateHeroBillboard();
   renderCatalogue();
   renderEpisodesDrawer();
@@ -399,8 +399,8 @@ if (btnSyncRoom) {
 
 // ==========================================================================
 // Toast & Sound Management Helpers
-const SVG_VOL_ON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
-const SVG_VOL_MUTED = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`;
+const SVG_VOL_ON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
+const SVG_VOL_MUTED = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`;
 
 function showToast(message) {
   const toast = document.getElementById("app-toast");
@@ -427,7 +427,7 @@ function showUnmuteAlert(show) {
 function updateSoundUI() {
   const isMuted = customVideo.muted || customVideo.volume === 0;
   const soundIconHtml = isMuted ? SVG_VOL_MUTED : SVG_VOL_ON;
-  const soundText = isMuted ? "Muted" : "Sound ON";
+  const soundText = isMuted ? "Unmute" : "Mute";
   const soundTitle = isMuted ? "Audio is Muted (Click to Unmute)" : "Audio is Playing (Click to Mute)";
 
   const navBtnSound = document.getElementById("nav-btn-sound");
@@ -538,6 +538,8 @@ const navBtnCinema = document.getElementById("nav-btn-cinema");
 const navBtnUpload = document.getElementById("nav-btn-upload");
 
 function switchView(viewName) {
+  document.getElementById("app-container")?.classList.toggle("cinema-mode", viewName === "cinema");
+  if (viewName !== "cinema") clearTimeout(idleTimer);
   if (folderTreeselectInstance?.isListOpened) folderTreeselectInstance.toggleOpenClose();
   [viewBrowse, viewCinema, viewUpload].forEach(v => v.classList.remove("active"));
   [navBtnBrowse, navBtnCinema, navBtnUpload].forEach(b => b.classList.remove("active"));
@@ -663,7 +665,7 @@ function playVideo(videoUrl, folderPath = null, clickedCard = null) {
   }
 
   // Show Netflix/Apple TV animated toast
-  showToast(`Now Playing: ${cleanTitle}`);
+  showToast(`Now playing: ${cleanTitle}`);
 
   socket.emit("change-source", { source: videoUrl, folder: folderPath || null });
   updateHeroBillboard();
@@ -711,7 +713,23 @@ function updatePlayButtonUI(isPlaying) {
   const cinemaPlayIcon = document.getElementById("cinema-play-icon");
   if (heroPlayIcon) heroPlayIcon.innerHTML = isPlaying ? SVG_PAUSE_BTN : SVG_PLAY_BTN;
   if (cinemaPlayIcon) cinemaPlayIcon.innerHTML = isPlaying ? SVG_PAUSE_BTN : SVG_PLAY_BTN;
+  const action = isPlaying ? "Pause" : "Play";
+  const state = isPlaying ? "Playing" : "Paused";
+  const label = document.getElementById("hero-play-label");
+  const status = document.getElementById("hero-playback-status");
+  if (label) label.textContent = action;
+  if (status) status.textContent = state;
+  for (const id of ["btn-hero-playpause", "btn-toggle-play"]) {
+    const button = document.getElementById(id);
+    if (!button) continue;
+    button.setAttribute("aria-label", action);
+    button.setAttribute("title", `${state} — ${action}`);
+    button.setAttribute("data-playback", isPlaying ? "playing" : "paused");
+  }
 }
+
+customVideo.addEventListener("ended", () => updatePlayButtonUI(false));
+customVideo.addEventListener("emptied", () => updatePlayButtonUI(false));
 
 document.getElementById("btn-hero-playpause").addEventListener("click", togglePlayPause);
 document.getElementById("btn-toggle-play").addEventListener("click", togglePlayPause);
@@ -774,6 +792,7 @@ if (ytProgressContainer) {
 
   // Mouse down / Drag start
   ytProgressContainer.addEventListener("mousedown", (e) => {
+    if (e.target === cinemaScrubber) return;
     if (!customVideo.duration) return;
     isScrubbingTimeline = true;
     isScrubbing = true;
@@ -812,15 +831,20 @@ if (ytProgressContainer) {
 // Fallback for native range inputs
 if (cinemaScrubber) {
   cinemaScrubber.addEventListener("input", () => {
+    isScrubbing = true;
+    resetIdleTimer();
     if (customVideo.duration) {
       const pct = parseFloat(cinemaScrubber.value);
       const newTime = (pct / 100) * customVideo.duration;
+      updateProgressBarUI(newTime, customVideo.duration);
       const currentEl = document.getElementById("cinema-time-current");
       if (currentEl) currentEl.textContent = formatTime(newTime);
     }
   });
 
   cinemaScrubber.addEventListener("change", () => {
+    isScrubbing = false;
+    resetIdleTimer();
     if (customVideo.duration) {
       const pct = parseFloat(cinemaScrubber.value);
       const newTime = (pct / 100) * customVideo.duration;
@@ -857,12 +881,12 @@ function toggleAutoNext(folderPath = null) {
   socket.emit("set-auto-next", { enabled: newState, folder: targetFolder });
   updateAutoNextButtonsUI();
   updateStatus(`Auto Next ${newState ? "ON" : "OFF"}`);
-  showToast(newState ? "Auto-Next Enabled" : "Auto-Next Disabled");
+  showToast(newState ? "Auto-next enabled" : "Auto-next disabled");
   renderCatalogue();
 }
 
 function updateAutoNextButtonsUI() {
-  const text = autoNextEnabled ? "Auto-Next: ON" : "Auto-Next: OFF";
+  const text = autoNextEnabled ? "Auto-next: On" : "Auto-next: Off";
 
   const heroBtn = document.getElementById("btn-hero-autonext");
   if (heroBtn) {
@@ -897,20 +921,58 @@ document.getElementById("btn-next-episode").addEventListener("click", () => {
 // Cinema Idle HUD Auto-Hide
 const cinemaTheater = document.getElementById("cinema-theater");
 
+let cinemaKeyboardFocus = false;
+let cinemaPointerType = "mouse";
+let cinemaTouchStartedHidden = false;
+
+function setCinemaControlsVisible(visible) {
+  if (!cinemaTheater) return;
+  cinemaTheater.classList.toggle("idle-hidden", !visible);
+  cinemaTheater.querySelectorAll(".cinema-hud").forEach(hud => { hud.inert = !visible; });
+}
+
 function resetIdleTimer() {
   if (!cinemaTheater) return;
-  cinemaTheater.classList.remove("idle-hidden");
+  setCinemaControlsVisible(true);
   clearTimeout(idleTimer);
+  if (!viewCinema.classList.contains("active")) return;
   idleTimer = setTimeout(() => {
-    if (!customVideo.paused && viewCinema.classList.contains("active")) {
-      cinemaTheater.classList.add("idle-hidden");
+    const keyboardControl = cinemaKeyboardFocus && cinemaTheater.contains(document.activeElement);
+    const interacting = isScrubbingTimeline || cinemaTheater.querySelector(".cinema-episodes-drawer.open, .cinema-hud:hover");
+    if (!customVideo.paused && viewCinema.classList.contains("active") && !keyboardControl && !interacting) {
+      setCinemaControlsVisible(false);
     }
-  }, 3500);
+  }, 2500);
 }
 
 if (cinemaTheater) {
-  cinemaTheater.addEventListener("mousemove", resetIdleTimer);
-  cinemaTheater.addEventListener("click", resetIdleTimer);
+  cinemaTheater.addEventListener("pointermove", event => {
+    if (event.pointerType !== "touch") resetIdleTimer();
+  });
+  cinemaTheater.addEventListener("pointerdown", event => {
+    cinemaKeyboardFocus = false;
+    cinemaPointerType = event.pointerType;
+    cinemaTouchStartedHidden = cinemaTheater.classList.contains("idle-hidden");
+  });
+  cinemaTheater.addEventListener("click", event => {
+    if (event.target.closest(".cinema-hud, .cinema-episodes-drawer")) return resetIdleTimer();
+    if (cinemaPointerType === "touch" && !customVideo.paused && !cinemaTouchStartedHidden) {
+      clearTimeout(idleTimer);
+      setCinemaControlsVisible(false);
+    } else resetIdleTimer();
+  });
+  cinemaTheater.addEventListener("pointerleave", resetIdleTimer);
+  cinemaTheater.addEventListener("focusin", () => { if (cinemaKeyboardFocus) resetIdleTimer(); });
+  cinemaTheater.addEventListener("focusout", () => { if (cinemaKeyboardFocus) resetIdleTimer(); });
+  document.addEventListener("keydown", event => {
+    if (viewCinema.classList.contains("active") && event.key === "Tab") {
+      cinemaKeyboardFocus = true;
+      resetIdleTimer();
+    }
+  }, true);
+  customVideo.addEventListener("play", resetIdleTimer);
+  customVideo.addEventListener("pause", resetIdleTimer);
+  customVideo.addEventListener("ended", resetIdleTimer);
 }
 
 // ==========================================================================
@@ -978,6 +1040,7 @@ document.getElementById("btn-shortcuts").addEventListener("click", showShortcutH
 // ==========================================================================
 // Hero Billboard Updating
 function updateHeroBillboard() {
+  document.getElementById("hero-billboard")?.classList?.toggle("has-media", Boolean(customVideo.src));
   const heroTitle = document.getElementById("hero-title");
   const heroSubtitle = document.getElementById("hero-subtitle");
   const heroFolderTag = document.getElementById("hero-folder-tag");
@@ -986,20 +1049,20 @@ function updateHeroBillboard() {
   const cinemaFolderName = document.getElementById("cinema-folder-name");
 
   if (!customVideo.src) {
-    if (heroTitle) heroTitle.textContent = "Select a video or series to begin";
-    if (heroSubtitle) heroSubtitle.textContent = "Stream videos together in real-time with synchronized playback and auto-next support.";
+    if (heroTitle) heroTitle.textContent = "Choose a film to watch together";
+    if (heroSubtitle) heroSubtitle.textContent = "Open a film or episode from the library. Playback stays in sync with the room.";
     if (heroFolderTag) heroFolderTag.textContent = "Library";
     if (heroLiveBadge) heroLiveBadge.style.display = "none";
     const heroBackdrop = document.getElementById("hero-backdrop");
     if (heroBackdrop) heroBackdrop.style.backgroundImage = "";
-    if (cinemaVideoTitle) cinemaVideoTitle.textContent = "No Video Selected";
+    if (cinemaVideoTitle) cinemaVideoTitle.textContent = "No video selected";
     if (cinemaFolderName) cinemaFolderName.textContent = "Library";
     return;
   }
 
   const rawFilename = decodeURIComponent(pathBasename(customVideo.src));
   const cleanTitle = formatMediaTitle(rawFilename);
-  const folderName = currentPlayingFolder ? currentPlayingFolder.split("/").filter(Boolean).pop() : "Standalone Video";
+  const folderName = currentPlayingFolder ? currentPlayingFolder.split("/").filter(Boolean).pop() : "Standalone video";
 
   if (heroTitle) heroTitle.textContent = cleanTitle;
   if (heroSubtitle) heroSubtitle.textContent = `Streaming in synchronized room "${roomId}".`;
@@ -1076,7 +1139,7 @@ function renderCatalogue() {
   container.innerHTML = "";
 
   // ------------------------------------------------------------------------
-  // ROOT VIEW (currentFolderView == null): Show Folders & Standalone Videos
+  // ROOT VIEW (currentFolderView == null): Show Folders & Standalone videos
   if (!currentFolderView) {
     const visibleFolders = folders.filter(function matchFolderTree(f) {
       if (matchesSearch(f.name)) return true;
@@ -1123,7 +1186,7 @@ function renderCatalogue() {
       container.appendChild(folderShelf);
     }
 
-    // 2. Standalone Videos Shelf (Movies)
+    // 2. Standalone videos Shelf (Movies)
     if (visibleVideos.length > 0) {
       const videoShelf = document.createElement("section");
       videoShelf.className = "catalogue-shelf";
@@ -1132,7 +1195,7 @@ function renderCatalogue() {
       header.className = "shelf-header";
       header.innerHTML = `
         <div class="shelf-title-group">
-          <h2 class="shelf-title">Movies & Standalone Videos</h2>
+          <h2 class="shelf-title">Movies & Standalone videos</h2>
           <span class="shelf-count-badge">${visibleVideos.length}</span>
         </div>
       `;
@@ -1253,11 +1316,11 @@ function openVideoContextMenu(e, video) {
   menu.className = "card-popover-menu";
   menu.innerHTML = `
     <button class="card-popover-item btn-pop-move">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
       Move to Folder
     </button>
     <button class="card-popover-item danger btn-pop-del">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
       Delete Video
     </button>
   `;
@@ -1306,11 +1369,11 @@ function openFolderContextMenu(e, folder) {
       Play from Start
     </button>
     <button class="card-popover-item btn-pop-sub">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       New Subfolder
     </button>
     <button class="card-popover-item danger btn-pop-del">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
       Delete Folder
     </button>
   `;
@@ -1802,7 +1865,7 @@ function createVideoCard(video, folderPath) {
             <span class="eq-bar"></span>
             <span class="eq-bar"></span>
           </span>
-          PLAYING
+          Playing
         </div>
       ` : ""}
     </div>

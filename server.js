@@ -65,6 +65,17 @@ function saveThumbnailMetadata() {
   } catch (err) { console.error("Thumbnail metadata save failed:", err.message); }
 }
 
+function getThumbnailMeta(thumbHash) {
+  if (thumbnailMetadata && thumbnailMetadata[thumbHash]) return thumbnailMetadata[thumbHash];
+  try {
+    if (fs.existsSync(thumbnailMetaFile)) {
+      thumbnailMetadata = JSON.parse(fs.readFileSync(thumbnailMetaFile, "utf-8"));
+      return thumbnailMetadata[thumbHash] || null;
+    }
+  } catch {}
+  return null;
+}
+
 // ==========================================================================
 // Security & Path Confinement Defenses
 // ==========================================================================
@@ -405,7 +416,7 @@ function scanLibraryDirectory(dirPath, relativePath = "") {
       const thumbHash = crypto.createHash("sha1").update(entryRelPath).digest("hex");
       const thumbFile = path.join(thumbnailsDir, `${thumbHash}.jpg`);
       const hasThumb = fs.existsSync(thumbFile);
-      const meta = thumbnailMetadata[thumbHash] || null;
+      const meta = getThumbnailMeta(thumbHash);
 
       videos.push({
         name: entry.name,
