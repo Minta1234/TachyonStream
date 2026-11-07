@@ -2,6 +2,10 @@
   "name": "tachyonstream",
   "version": "1.0.0",
   "type": "module",
+  "contributors": [
+    "Google AI",
+    "Codex"
+  ],
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",

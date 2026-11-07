@@ -241,6 +241,12 @@ stop.ps1 / stop.bat              Windows shutdown
 
 [MIT License](LICENSE)
 
+## Contributors
+
+- **Google AI**
+- **Codex**
+
+
 ## Interface design
 
 The screening-room interface uses graphite controls, a restrained red selection mark, SVG icons, and 44px mobile targets so film imagery stays prominent. See [design notes and attribution](docs/INTERFACE_DESIGN.md).
