@@ -42,20 +42,22 @@ function isTrustedOrigin(origin, hostHeader) {
 
 function isTrustedRequest(req) {
   const origin = req.headers.origin;
-  if (origin) {
+  if (origin && origin !== "null") {
     return isTrustedOrigin(origin, req.headers.host);
   }
-  const site = req.headers["sec-fetch-site"];
-  if (site === "same-origin" || site === "same-site") return true;
-  if (site === "cross-site") {
-    const referer = req.headers.referer;
-    if (referer && isTrustedOrigin(referer, req.headers.host)) return true;
-    return false;
-  }
   const referer = req.headers.referer;
-  if (referer) {
-    return isTrustedOrigin(referer, req.headers.host);
+  if (referer && referer !== "null") {
+    try {
+      const refUrl = new URL(referer);
+      if (["http:", "https:"].includes(refUrl.protocol)) {
+        return isTrustedOrigin(referer, req.headers.host);
+      }
+    } catch {
+      return false;
+    }
   }
+  const site = req.headers["sec-fetch-site"];
+  if (site === "cross-site") return false;
   return true;
 }
 
@@ -799,16 +801,21 @@ function validateVideoAccess(req) {
   }
   const isSocketAlive = io.sockets.sockets.has(sid);
   const sessionTime = activePlaybackSessions.get(sid);
-  const isGraceValid = sessionTime && (Date.now() - sessionTime < 180000); // 3 minutes grace period
+  const isGraceValid = sessionTime && (Date.now() - sessionTime < 7200000); // 2 hours grace period for long iOS/mobile playback
   if (!isSocketAlive && !isGraceValid) {
     return { allowed: false, reason: "Invalid or expired playback session. Access only permitted via TachyonStream Player." };
   }
   activePlaybackSessions.set(sid, Date.now());
 
   // 4. Authorized Origin/Referer verification (blocks hotlinking from external unauthorized domains)
-  if (referer) {
-    if (!isTrustedOrigin(referer, req.headers.host)) {
-      return { allowed: false, reason: "Hotlinking from unauthorized origin is prohibited." };
+  if (referer && referer !== "null") {
+    try {
+      const parsedRef = new URL(referer);
+      if (["http:", "https:"].includes(parsedRef.protocol) && !isTrustedOrigin(referer, req.headers.host)) {
+        return { allowed: false, reason: "Hotlinking from unauthorized origin is prohibited." };
+      }
+    } catch {
+      // Ignore non-URL/custom mobile player referers once player sid is verified
     }
   }
 
@@ -927,8 +934,26 @@ async function handleVideoStreaming(req, res) {
   let contentType = "video/mp4";
   if (ext === ".webm") contentType = "video/webm";
   else if (ext === ".mkv") contentType = "video/x-matroska";
-  else if (ext === ".mov") contentType = "video/quicktime";
   else if (ext === ".ogg") contentType = "video/ogg";
+  // Serve H.264/AAC .mov containers as video/mp4 for broad iOS & desktop compatibility.
+
+  // Shared response headers: disallow CDN/shared caching while permitting iOS AVPlayer local byte-range buffering.
+  function buildStreamHeaders(extra = {}) {
+    return {
+      ...extra,
+      "Content-Type": contentType,
+      "Accept-Ranges": "bytes",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "Range, Content-Type, Accept, Origin",
+      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+      "Cache-Control": "private, max-age=0, must-revalidate",
+      "Surrogate-Control": "no-store",
+      "CDN-Cache-Control": "no-store",
+      "Cloudflare-CDN-Cache-Control": "no-store"
+    };
+  }
 
   // Node's pipe backpressure bounds memory without extra 3 MB HTTP round trips.
   if (range) {
@@ -940,8 +965,12 @@ async function handleVideoStreaming(req, res) {
 
     const { start, end } = parsed;
     const chunksize = end - start + 1;
+    const rangeHeaders = buildStreamHeaders({
+      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      "Content-Length": chunksize
+    });
     if (req.method === "HEAD") {
-      res.status(206).set({ "Content-Range": `bytes ${start}-${end}/${fileSize}`, "Content-Length": chunksize, "Content-Type": contentType, "Accept-Ranges": "bytes", "Cache-Control": "no-store" }).end();
+      res.status(206).set(rangeHeaders).end();
       return;
     }
     const file = fs.createReadStream(filePath, { start, end });
@@ -951,38 +980,14 @@ async function handleVideoStreaming(req, res) {
       file.destroy();
     });
 
-    const head = {
-      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-      "Accept-Ranges": "bytes",
-      "Content-Length": chunksize,
-      "Content-Type": contentType,
-      "Access-Control-Allow-Origin": "*",
-      "Cross-Origin-Resource-Policy": "cross-origin",
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-      "Pragma": "no-cache",
-      "Expires": "0",
-      "Surrogate-Control": "no-store",
-      "CDN-Cache-Control": "no-store",
-      "Cloudflare-CDN-Cache-Control": "no-store"
-    };
-    res.writeHead(206, head);
+    res.writeHead(206, rangeHeaders);
     file.on("error", err => { console.error("Stream error:", err); res.destroy(); });
     file.pipe(res);
   } else {
     // Non-range request: stream first slice or full
-    const head = {
-      "Content-Length": fileSize,
-      "Content-Type": contentType,
-      "Accept-Ranges": "bytes",
-      "Access-Control-Allow-Origin": "*",
-      "Cross-Origin-Resource-Policy": "cross-origin",
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-      "Pragma": "no-cache",
-      "Expires": "0",
-      "Surrogate-Control": "no-store",
-      "CDN-Cache-Control": "no-store",
-      "Cloudflare-CDN-Cache-Control": "no-store"
-    };
+    const head = buildStreamHeaders({
+      "Content-Length": fileSize
+    });
     res.writeHead(200, head);
     if (req.method === "HEAD") return res.end();
     const file = fs.createReadStream(filePath);

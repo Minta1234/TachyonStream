@@ -344,7 +344,7 @@
     <!-- Hidden Master Video Container (Moved dynamically between Hero Dock and Cinema View) -->
     <div id="player-container" class="player-container">
       <div id="custom-player-box" class="player-box active">
-        <video id="custom-video" playsinline crossorigin="anonymous" preload="auto" controlsList="nodownload noremoteplayback" oncontextmenu="return false;"></video>
+        <video id="custom-video" playsinline webkit-playsinline="true" x-webkit-airplay="allow" preload="auto" controlsList="nodownload noremoteplayback" oncontextmenu="return false;"></video>
       </div>
     </div>
 
@@ -369,7 +369,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="vendor/treeselectjs/treeselectjs.umd.js?v=1.0.2-fixed"></script>
-  <script src="app.js?v=8.1.0"></script>
+  <script src="app.js?v=8.2.0"></script>
 </body>
 
 </html>
