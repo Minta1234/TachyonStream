@@ -17,15 +17,48 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
-function isTrustedRequest(req) {
-  if (req.headers["sec-fetch-site"] === "cross-site") return false;
-  const origin = req.headers.origin;
-  if (!origin) return req.headers["sec-fetch-site"] === "same-origin";
+
+function isTrustedOrigin(origin, hostHeader) {
+  if (!origin || typeof origin !== "string") return false;
   try {
     const url = new URL(origin);
-    return ["http:", "https:"].includes(url.protocol) && url.host === req.headers.host;
-  } catch { return false; }
+    if (!["http:", "https:"].includes(url.protocol)) return false;
+    const host = url.hostname.toLowerCase();
+    const customDomain = (process.env.STREAM_DOMAIN || process.env.ALLOWED_DOMAIN || "").trim().toLowerCase();
+    const expectedHost = hostHeader ? hostHeader.split(":")[0].toLowerCase() : null;
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      (expectedHost && host === expectedHost) ||
+      (customDomain && (host === customDomain || host.endsWith("." + customDomain))) ||
+      host === "discord.com" ||
+      host.endsWith(".discord.com") ||
+      host.endsWith(".discordsays.com")
+    );
+  } catch {
+    return false;
+  }
 }
+
+function isTrustedRequest(req) {
+  const origin = req.headers.origin;
+  if (origin) {
+    return isTrustedOrigin(origin, req.headers.host);
+  }
+  const site = req.headers["sec-fetch-site"];
+  if (site === "same-origin" || site === "same-site") return true;
+  if (site === "cross-site") {
+    const referer = req.headers.referer;
+    if (referer && isTrustedOrigin(referer, req.headers.host)) return true;
+    return false;
+  }
+  const referer = req.headers.referer;
+  if (referer) {
+    return isTrustedOrigin(referer, req.headers.host);
+  }
+  return true;
+}
+
 const io = new Server(server, {
   allowRequest: (req, callback) => callback(null, isTrustedRequest(req))
 });
@@ -760,44 +793,23 @@ function validateVideoAccess(req) {
     return { allowed: false, reason: "Direct video file requests are prohibited. Access only permitted via TachyonStream Player." };
   }
 
-  // 3. Mandatory Authorized Origin (Referer Header)
-  // Legitimate playback from TachyonStream Player or Discord Activity ALWAYS includes a valid Referer.
-  // Direct address-bar visits in standalone browser tabs NEVER provide a Referer.
-  if (!referer) {
-    return { allowed: false, reason: "Direct video URL access in browser address bar is forbidden." };
-  }
-
-  try {
-    const parsedReferer = new URL(referer);
-    const host = parsedReferer.hostname.toLowerCase();
-    const customDomain = (process.env.STREAM_DOMAIN || process.env.ALLOWED_DOMAIN || "").trim().toLowerCase();
-    const isAllowedHost =
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      (customDomain && (host === customDomain || host.endsWith("." + customDomain))) ||
-      host === "discord.com" ||
-      host.endsWith(".discord.com") ||
-      host.endsWith(".discordsays.com");
-
-    if (!isAllowedHost) {
-      return { allowed: false, reason: `Hotlinking from unauthorized origin "${host}" is prohibited.` };
-    }
-  } catch {
-    return { allowed: false, reason: "Malformed referer header." };
-  }
-
-  // 4. Player session verification (Socket.IO ID)
-  // Direct address-bar visits in browser tabs are already permanently blocked by checks 1, 2, 3 above.
-  if (sid && typeof sid === "string") {
-    const isSocketAlive = io.sockets.sockets.has(sid);
-    const sessionTime = activePlaybackSessions.get(sid);
-    const isGraceValid = sessionTime && (Date.now() - sessionTime < 180000); // 3 minutes grace period
-    if (!isSocketAlive && !isGraceValid) {
-      return { allowed: false, reason: "Invalid or expired playback session. Access only permitted via TachyonStream Player." };
-    }
-    activePlaybackSessions.set(sid, Date.now());
-  } else {
+  // 3. Player session verification (Socket.IO ID)
+  if (!sid || typeof sid !== "string") {
     return { allowed: false, reason: "Active player session required." };
+  }
+  const isSocketAlive = io.sockets.sockets.has(sid);
+  const sessionTime = activePlaybackSessions.get(sid);
+  const isGraceValid = sessionTime && (Date.now() - sessionTime < 180000); // 3 minutes grace period
+  if (!isSocketAlive && !isGraceValid) {
+    return { allowed: false, reason: "Invalid or expired playback session. Access only permitted via TachyonStream Player." };
+  }
+  activePlaybackSessions.set(sid, Date.now());
+
+  // 4. Authorized Origin/Referer verification (blocks hotlinking from external unauthorized domains)
+  if (referer) {
+    if (!isTrustedOrigin(referer, req.headers.host)) {
+      return { allowed: false, reason: "Hotlinking from unauthorized origin is prohibited." };
+    }
   }
 
   return { allowed: true };

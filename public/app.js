@@ -241,7 +241,20 @@ socket.on("sync-state", (state) => {
 
   if (isDifferentSource) {
     customVideo.src = getSecuredVideoUrl(state.source);
-    customVideo.currentTime = state.currentTime || 0;
+    if (state.currentTime > 0) {
+      const applyInitialTime = () => {
+        try {
+          if (Math.abs(customVideo.currentTime - state.currentTime) > 1) {
+            customVideo.currentTime = state.currentTime;
+          }
+        } catch {}
+      };
+      if (customVideo.readyState >= 1) {
+        applyInitialTime();
+      } else {
+        customVideo.addEventListener("loadedmetadata", applyInitialTime, { once: true });
+      }
+    }
   } else {
     alignPlaybackTime(state.currentTime || 0);
   }
@@ -254,9 +267,12 @@ socket.on("sync-state", (state) => {
       updateSoundUI();
     }).catch(() => {
       customVideo.muted = true;
-      customVideo.play().catch(() => { });
-      isMutedByAutoplay = true; showUnmuteAlert(true);
-      updateSoundUI();
+      customVideo.play().then(() => {
+        isMutedByAutoplay = true; showUnmuteAlert(true);
+        updateSoundUI();
+      }).catch(() => {
+        showUnmuteAlert(true, "Tap here or on the video to start playback");
+      });
     });
   } else {
     customVideo.pause();
@@ -417,9 +433,15 @@ function showToast(message) {
 
 let isMutedByAutoplay = false;
 
-function showUnmuteAlert(show) {
+function showUnmuteAlert(show, customText = null) {
   const banner = document.getElementById("unmute-alert");
   if (banner) {
+    const span = banner.querySelector("span") || banner;
+    if (customText) {
+      span.textContent = customText;
+    } else {
+      span.textContent = "Video is muted by browser policy. Tap here to unmute audio.";
+    }
     banner.style.display = show ? "flex" : "none";
   }
 }
@@ -492,18 +514,23 @@ function toggleAudioMute(e) {
   updateSoundUI();
 }
 
-// Unmute banner click
+// Unmute banner click/tap
 const unmuteAlertEl = document.getElementById("unmute-alert");
 if (unmuteAlertEl) {
-  unmuteAlertEl.addEventListener("click", (e) => {
+  const handleBannerAction = (e) => {
     if (e) e.stopPropagation();
     isMutedByAutoplay = false;
     customVideo.muted = false;
     if (customVideo.volume === 0) customVideo.volume = 1.0;
-    isMutedByAutoplay = false; showUnmuteAlert(false);
+    if (customVideo.paused) {
+      customVideo.play().catch(() => {});
+    }
+    showUnmuteAlert(false);
     updateSoundUI();
-    showToast("Audio Unmuted");
-  });
+    showToast("Audio Playing");
+  };
+  unmuteAlertEl.addEventListener("click", handleBannerAction);
+  unmuteAlertEl.addEventListener("touchend", handleBannerAction);
 }
 
 // Sound toggle buttons
@@ -513,19 +540,29 @@ if (navBtnSound) navBtnSound.addEventListener("click", toggleAudioMute);
 const heroBtnSound = document.getElementById("btn-hero-sound");
 if (heroBtnSound) heroBtnSound.addEventListener("click", toggleAudioMute);
 
-// Auto-unmute ONLY on first user gesture if restricted by browser autoplay policy
-document.addEventListener("click", (e) => {
+// Auto-unmute or resume playback on first user gesture (touch/click) on mobile
+const handleFirstInteraction = (e) => {
   if (e.target.closest("#nav-btn-sound, #btn-hero-sound, #btn-cinema-mute, #cinema-volume, .volume-box, #unmute-alert")) {
     return;
   }
-  if (isMutedByAutoplay && customVideo.src && !customVideo.paused) {
-    isMutedByAutoplay = false;
-    customVideo.muted = false;
-    customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
-    isMutedByAutoplay = false; showUnmuteAlert(false);
-    updateSoundUI();
+  if (customVideo.src) {
+    if (customVideo.paused && isMutedByAutoplay) {
+      customVideo.play().then(() => {
+        isMutedByAutoplay = false;
+        showUnmuteAlert(false);
+        updateSoundUI();
+      }).catch(() => {});
+    } else if (isMutedByAutoplay && !customVideo.paused) {
+      isMutedByAutoplay = false;
+      customVideo.muted = false;
+      customVideo.volume = (customVideo.volume > 0) ? customVideo.volume : 1.0;
+      showUnmuteAlert(false);
+      updateSoundUI();
+    }
   }
-}, { capture: true });
+};
+document.addEventListener("click", handleFirstInteraction, { capture: true });
+document.addEventListener("touchend", handleFirstInteraction, { capture: true });
 
 // ==========================================================================
 // View Routing & Player Docking (Browse / Cinema / Upload)
